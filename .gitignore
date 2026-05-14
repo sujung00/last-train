@@ -1,0 +1,60 @@
+### Gradle ###
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### IntelliJ IDEA ###
+.idea/
+.idea/modules.xml
+.idea/jarRepositories.xml
+.idea/compiler.xml
+.idea/libraries/
+
+*.iws
+*.iml
+*.ipr
+
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store
+
+### Environment / Secrets ###
+# 실제 환경 변수 파일
+.env
+
+# 로컬 환경 설정
+src/main/resources/application-local.yml
+
+# 운영 파일에 민감정보가 직접 들어가면 제외
+src/main/resources/application-prod.yml
+
+# 예시 파일은 커밋 허용
+# .env.example
