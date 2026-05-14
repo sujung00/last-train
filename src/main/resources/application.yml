@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: last-train
+
+  # ── 데이터베이스 ─────────────────────────────────────────────────────────
+  # DB_HOST, DB_PORT, DB_NAME: 민감하지 않아 기본값 허용
+  # DB_USERNAME, DB_PASSWORD: 민감 정보 — 기본값 없음 (환경변수 필수)
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:last_train_db}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # ── JPA / Hibernate ──────────────────────────────────────────────────────
+  jpa:
+    hibernate:
+      # validate: 앱 시작 시 스키마 검증만 수행. 테이블 변경 없음.
+      # 로컬 개발 중에는 application-local.yml에서 update로 오버라이드
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Seoul  # 자정 넘김 처리를 위해 서울 시간대 명시
+        format_sql: false
+    show-sql: false              # 로컬에서만 true로 오버라이드
+
+  # ── Redis ────────────────────────────────────────────────────────────────
+  # REDIS_HOST: 기본값 localhost (비민감, 인프라 설정)
+  # REDIS_PORT: 6379는 Redis 기본 포트 (비민감)
+  # REDIS_PASSWORD: application-prod.yml에서만 설정
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+# ── JWT ──────────────────────────────────────────────────────────────────────
+# JWT_SECRET: 32자 이상 필수. 기본값 절대 금지.
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiry: 1800000    # 30분 (밀리초)
+  refresh-token-expiry: 604800000 # 7일  (밀리초)
+
+# ── ODsay API ────────────────────────────────────────────────────────────────
+# Server 플랫폼 키 사용. 프론트에 절대 노출 금지.
+odsay:
+  api-key: ${ODSAY_API_KEY}
+  base-url: https://api.odsay.com/v1/api
+
+# ── Kakao OAuth2.0 ───────────────────────────────────────────────────────────
+kakao:
+  client-id: ${KAKAO_CLIENT_ID}
+  client-secret: ${KAKAO_CLIENT_SECRET}
+
+# ── VAPID (Web Push) ─────────────────────────────────────────────────────────
+# npx web-push generate-vapid-keys 로 키 생성
+# VAPID_PRIVATE_KEY 유실 시 기존 구독 전체 무효화됨 — 안전한 보관 필수
+vapid:
+  public-key: ${VAPID_PUBLIC_KEY}
+  private-key: ${VAPID_PRIVATE_KEY}
+  subject: mailto:${ADMIN_EMAIL:sujung.kim.dev@gmail.com}
+
+# ── Swagger (springdoc-openapi) ──────────────────────────────────────────────
+# 운영 환경에서는 application-prod.yml에서 비활성화
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui/index.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+    display-request-duration: true
+    enabled: true
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
