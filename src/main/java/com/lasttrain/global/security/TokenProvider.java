@@ -35,15 +35,19 @@ public class TokenProvider {
     }
 
     public String createAccessToken(Long userId) {
-        return createToken(userId, accessTokenExpiry);
+        return createToken(userId, accessTokenExpiry, "ACCESS");
     }
 
     public String createRefreshToken(Long userId) {
-        return createToken(userId, refreshTokenExpiry);
+        return createToken(userId, refreshTokenExpiry, "REFRESH");
     }
 
     public Long getUserId(String token) {
         return Long.parseLong(getClaims(token).getSubject());
+    }
+
+    public String getTokenType(String token) {
+        return getClaims(token).get("type", String.class);
     }
 
     public boolean validateToken(String token) {
@@ -58,10 +62,11 @@ public class TokenProvider {
         return false;
     }
 
-    private String createToken(Long userId, long expiry) {
+    private String createToken(Long userId, long expiry, String tokenType) {
         Date now = new Date();
         return Jwts.builder()
                 .subject(String.valueOf(userId))
+                .claim("type", tokenType)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + expiry))
                 .signWith(key)
