@@ -87,6 +87,10 @@ public class NotificationScheduler {
         try {
             // ① item 파싱: "42:30" → ["42", "30"]
             String[] parts = item.split(":");
+            if (parts.length != 2) {
+                log.error("[파싱 오류] 잘못된 Queue 항목 형식: item={}", item);
+                return;
+            }
             Long scheduleId = Long.parseLong(parts[0]);
             int minutesBefore = Integer.parseInt(parts[1]);
 
