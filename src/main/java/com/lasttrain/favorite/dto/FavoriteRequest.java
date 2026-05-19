@@ -1,6 +1,8 @@
 package com.lasttrain.favorite.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -25,6 +27,8 @@ public record FavoriteRequest(
                 requiredMode = Schema.RequiredMode.REQUIRED
         )
         @NotNull(message = "위도를 입력해주세요.")
+        @DecimalMin(value = "-90", message = "위도는 -90 ~ 90 사이여야 합니다")
+        @DecimalMax(value = "90", message = "위도는 -90 ~ 90 사이여야 합니다")
         Double lat,
 
         @Schema(
@@ -33,6 +37,8 @@ public record FavoriteRequest(
                 requiredMode = Schema.RequiredMode.REQUIRED
         )
         @NotNull(message = "경도를 입력해주세요.")
+        @DecimalMin(value = "-180", message = "경도는 -180 ~ 180 사이여야 합니다")
+        @DecimalMax(value = "180", message = "경도는 -180 ~ 180 사이여야 합니다")
         Double lng,
 
         @Schema(description = "주소", example = "서울특별시 강남구 삼성동", nullable = true)

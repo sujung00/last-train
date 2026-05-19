@@ -90,6 +90,13 @@ public class NotificationQueueService {
      * @param lastBoardTime 막차 탑승 마감 시각 (DATETIME)
      */
     public void enqueue(Long scheduleId, LocalDateTime lastBoardTime) {
+        LocalDateTime now = LocalDateTime.now(SEOUL);
+        if (lastBoardTime.minusMinutes(10).isBefore(now)) {
+            log.warn("[Queue 등록 스킵] 막차 10분 전이 이미 지남: scheduleId={}, lastBoardTime={}, now={}",
+                    scheduleId, lastBoardTime, now);
+            return;
+        }
+
         // 30분 전 실행 시각 → epoch ms 변환
         long exec30 = toEpochMilli(lastBoardTime.minusMinutes(30));
         // 10분 전 실행 시각 → epoch ms 변환
