@@ -42,6 +42,7 @@ public class AuthController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "이메일/비밀번호 불일치")
     })
+    @SecurityRequirements({})
     @PostMapping("/login")
     public ApiResponse<TokenResponse> login(@Valid @RequestBody LoginRequest request) {
         // TODO: authService.login(request)
@@ -53,6 +54,7 @@ public class AuthController {
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인/회원가입 성공")
     })
+    @SecurityRequirements({})
     @PostMapping("/kakao")
     public ApiResponse<TokenResponse> kakaoLogin(@Valid @RequestBody KakaoLoginRequest request) {
         // TODO: authService.kakaoLogin(request.code())
@@ -61,7 +63,7 @@ public class AuthController {
 
     @Operation(summary = "Access Token 재발급",
             description = "Authorization 헤더에 Refresh Token을 담아 요청. 새 AT + RT 반환.")
-    @SecurityRequirement(name = "BearerAuth")
+    @SecurityRequirements({})
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "재발급 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "RT 만료 또는 불일치")
