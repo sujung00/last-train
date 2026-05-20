@@ -26,3 +26,30 @@ spring:
     redis:
       host: localhost
       port: 6379
+
+# ── JWT ───────────────────────────────────────────────────────────────────────
+# 테스트용 더미값 — 실제 서비스에 사용 금지
+jwt:
+  secret: test-secret-key-must-be-at-least-32-characters-long
+  access-token-expiry: 1800000    # 30분 (밀리초)
+  refresh-token-expiry: 604800000 # 7일  (밀리초)
+
+# ── ODsay API ─────────────────────────────────────────────────────────────────
+# 테스트용 더미값 — 실제 ODsay 호출이 필요한 테스트는 Mock 사용
+odsay:
+  api-key: test-odsay-api-key
+  base-url: https://api.odsay.com/v1/api
+
+# ── Kakao OAuth2.0 ────────────────────────────────────────────────────────────
+# 테스트용 더미값 — 실제 카카오 호출이 필요한 테스트는 Mock 사용
+kakao:
+  client-id: test-kakao-client-id
+  client-secret: test-kakao-client-secret
+  redirect-uri: http://localhost:3000/auth/kakao/callback
+
+# ── VAPID (Web Push) ──────────────────────────────────────────────────────────
+# 테스트용 더미값 — 실제 Push 발송이 필요한 테스트는 Mock 사용
+vapid:
+  public-key: BTest1234567890TestPublicKeyForVapidTestingOnlyNotRealKey12345
+  private-key: test-private-key-for-vapid-testing-only-not-real
+  subject: mailto:test@example.com
