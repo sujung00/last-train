@@ -1,6 +1,7 @@
 package com.lasttrain.favorite.domain;
 
 import com.lasttrain.auth.domain.User;
+import com.lasttrain.favorite.dto.FavoriteResponse;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -63,5 +64,48 @@ public class Favorite {
         this.lat = lat;
         this.lng = lng;
         this.address = address;
+    }
+
+    /**
+     * 즐겨찾기 정보를 수정합니다.
+     *
+     * JPA는 트랜잭션이 끝날 때 엔티티의 변경 사항을 감지해서(Dirty Checking)
+     * 자동으로 UPDATE 쿼리를 실행합니다. 그래서 이 메서드를 호출한 뒤
+     * 별도로 save()를 호출하지 않아도 DB에 반영됩니다.
+     *
+     * @param name    새 즐겨찾기 이름
+     * @param emoji   새 이모지 (없으면 null)
+     * @param lat     새 위도
+     * @param lng     새 경도
+     * @param address 새 주소 (없으면 null)
+     */
+    public void update(String name, String emoji, Double lat, Double lng, String address) {
+        this.name = name;
+        this.emoji = emoji;
+        // Double → BigDecimal 변환 (DB 컬럼 타입이 DECIMAL이라 변환 필요)
+        this.lat = BigDecimal.valueOf(lat);
+        this.lng = BigDecimal.valueOf(lng);
+        this.address = address;
+    }
+
+    /**
+     * 이 즐겨찾기 엔티티를 API 응답용 DTO(FavoriteResponse)로 변환합니다.
+     *
+     * 컨트롤러는 엔티티(Favorite)를 직접 반환하지 않고 DTO를 반환합니다.
+     * 이유: 엔티티를 직접 반환하면 DB 구조가 그대로 외부에 노출되고,
+     *       민감한 필드나 연관 객체(User 등)까지 직렬화될 수 있습니다.
+     *
+     * @return API 응답에 사용할 FavoriteResponse
+     */
+    public FavoriteResponse toResponse() {
+        return new FavoriteResponse(
+                this.favoriteId,
+                this.name,
+                this.emoji,
+                this.lat.doubleValue(),  // BigDecimal → Double 변환 (응답 DTO 타입에 맞춤)
+                this.lng.doubleValue(),
+                this.address,
+                this.createdAt
+        );
     }
 }
