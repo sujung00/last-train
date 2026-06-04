@@ -1,10 +1,13 @@
-================================================================================
- system-design.txt
- Project : 막차 알리미 (Last Train Notifier)
- Author  : Reviewed by Senior Backend Architect
- Version : 2.0
- Date    : 2026-05
-================================================================================
+# system-design.md
+
+| 항목    | 내용                              |
+|---------|-----------------------------------|
+| Project | 막차 알리미 (Last Train Notifier) |
+| Author  | Reviewed by Senior Backend Architect |
+| Version | 2.0                               |
+| Date    | 2026-05                           |
+
+---
 
 # 1. Architecture Overview
 
@@ -15,6 +18,7 @@
 
 ## 1.2 시스템 구성도
 
+```
 [Browser (React SPA)]
   │  Kakao Local API (장소 검색, 직접 호출)
   │  HTTPS / REST (/api/v1/*)
@@ -28,6 +32,7 @@
 
 [Redis Delay Queue Worker - 1초]
   └── notification:queue (ZSET) polling → Web Push (VAPID) 발송
+```
 
 ## 1.3 아키텍처 스타일 조합
 
@@ -43,7 +48,22 @@
 | Frontend | Component-Based UI Architecture | 화면 단위 재사용 컴포넌트 분리.                            |
 |          |                                 | 막차 결과 카드, 타이머 등 독립적 UI 단위 관리.             |
 
-## 1.4 의도적으로 단순화한 부분
+## 1.4 아키텍처 선택 근거 (10개 기준)
+
+| #  | 아키텍처                                       | 적용 여부       | 근거 (실제 파일/코드 기준)                                                                                                                                                                                       |
+|----|------------------------------------------------|-----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 1  | 3-Tier / Layered Architecture                  | ✅ 적용         | Controller → Service → Repository → Domain 4계층 분리 확인. AuthController → AuthService → UserRepository → User, FavoriteController → FavoriteService → FavoriteRepository → Favorite. global/ 패키지가 공통 인프라 계층 담당. |
+| 2  | Feature-Sliced / Vertical Slice Architecture   | ✅ 적용         | 기능 단위 패키지 구조 확인: com.lasttrain.auth/, favorite/, route/, notification/. 각 패키지 내에 controller/service/repository/domain/dto 전 계층이 수직 포함됨. Layered Architecture와 혼합 구조.             |
+| 3  | Component-Based UI Architecture                | ❌ 미적용       | 백엔드 Java 코드만 존재. React 컴포넌트 파일 없음. system-design.md 4절에 설계만 기술됨.                                                                                                                        |
+| 4  | State Management Architecture                  | ❌ 미적용       | 백엔드 Java 코드만 존재. AuthContext, useState 등 프론트 상태관리 코드 없음. system-design.md 4.4절, 17절에 설계만 기술됨.                                                                                       |
+| 5  | API-First / Client-Server Architecture         | ✅ 적용         | SwaggerConfig.java에서 OpenAPI 3.0 명세 정의. 전체 컨트롤러에 @Tag, @Operation, @ApiResponses, @SecurityRequirements 어노테이션 적용. ApiResponse<T> 공통 응답 포맷(global/response/ApiResponse.java). springdoc-openapi-starter-webmvc-ui:2.3.0 의존성 확인. |
+| 6  | Data Model / Repository Architecture           | ✅ 적용         | UserRepository, FavoriteRepository가 JpaRepository<T, Long> 상속. User.java (@Table, @UniqueConstraint, @Index), Favorite.java (@Table, @Index, DECIMAL(10,7) 정밀도 지정) JPA 엔티티 설계. Spring Data JPA 메서드 네이밍 쿼리 활용. |
+| 7  | Clean / Hexagonal Architecture                 | ❌ 미적용       | 포트(인터페이스)·어댑터 분리 없음. User.java, Favorite.java 도메인 엔티티가 @Entity, @EntityListeners, @CreatedDate 등 Spring 어노테이션에 직접 의존. OdsayClient 인터페이스는 system-design.md 3.4절 설계로만 존재, 실제 코드 없음. |
+| 8  | Modular Monolith → Microservices Architecture  | ❌ 미적용       | LastTrainApplication.java 단일 진입점. 서비스 간 HTTP 통신·독립 배포 구조 없음. 기능별 패키지 분리는 있으나 독립 배포 가능한 모듈이 아님.                                                                       |
+| 9  | Event-Driven / Queue / CQRS Architecture       | △ 부분 적용     | Redis ZSET Delay Queue 구현 확인: NotificationQueueService.java (enqueue/popDue/cancel), NotificationScheduler.java (@Scheduled fixedDelay=1초). Lua script로 ZRANGEBYSCORE + ZREM 원자적 처리. CQRS(읽기·쓰기 모델 분리)는 없음. Spring 이벤트(UserSignedUpEvent 등)는 system-design.md 12절 설계만 존재, 실제 코드 없음. |
+| 10 | AI-Native RAG / Agent Architecture             | ❌ 미적용       | AI·LLM·임베딩·벡터 DB 관련 코드 없음. 전체 Java 소스 파일 어디에도 AI 라이브러리 의존성 없음.                                                                                                                  |
+
+## 1.5 의도적으로 단순화한 부분
 
 - 시간표 로컬 DB 저장 없음 (ODsay 실시간 호출 + Redis 캐싱)
 - 알림 재시도 로직 없음 (MVP 범위 외)
@@ -53,7 +73,7 @@
 - 전역 상태관리 라이브러리 최소화 (Context API로 충분)
 - React Query 미도입 (useState + useEffect로 충분한 조회 패턴)
 
-================================================================================
+---
 
 # 2. Architecture Decisions
 
@@ -71,8 +91,8 @@
 - 경기도 버스 API는 "실시간 도착 정보" 미지원. 본 서비스는 실시간 위치 불필요.
 - 경기도 버스 API 별도 연동 시 복잡도 대비 효과 낮음 → 제거.
 
-주의: busLastTime은 정적 시간표 기반.
-실제 버스 결행/지연은 반영 안 됨 → 결과 화면 안내 문구 필수.
+> **주의**: busLastTime은 정적 시간표 기반.
+> 실제 버스 결행/지연은 반영 안 됨 → 결과 화면 안내 문구 필수.
 
 ## 2.3 Redis 도입
 
@@ -91,7 +111,7 @@
 - IP 기반 인증 → 로컬 개발 시 공인 IP 등록 필요
 - API Key 프론트 노출 금지
 
-================================================================================
+---
 
 # 3. Backend Package Structure
 
@@ -196,6 +216,7 @@ LastTrainCalculator는 외부 의존성 없는 순수 비즈니스 로직 클래
 ## 3.4 외부 API 의존성 분리 전략
 
 OdsayClient를 인터페이스로 선언:
+
 ```java
 public interface OdsayClient {
   OdsayRouteResponse searchRoute(double sx, double sy, double ex, double ey);
@@ -218,7 +239,7 @@ ODsay 스펙 변경 시 OdsayClientImpl만 수정.
 | NotificationService.subscribe()     | 필요           | subscription + schedule 동시 저장            |
 | NotificationScheduler.poll()        | 필요           | 발송 + notified 플래그 업데이트 원자성       |
 
-================================================================================
+---
 
 # 4. Frontend Package Structure
 
@@ -300,8 +321,8 @@ components/common (공통) + components/기능별 2단계로 충분.
 
 엄격한 분리 대신 아래 원칙만 준수:
 
-- pages/*: 데이터 페칭 + 상태 관리 + 컴포넌트 조합 (Container 역할)
-- components/*: props 받아 렌더링만 담당. 직접 API 호출 금지.
+- `pages/*`: 데이터 페칭 + 상태 관리 + 컴포넌트 조합 (Container 역할)
+- `components/*`: props 받아 렌더링만 담당. 직접 API 호출 금지.
 
 ```
 ResultPage.tsx
@@ -362,6 +383,7 @@ axiosInstance.interceptors.response.use(
 ## 4.6 로딩/에러 상태 처리
 
 각 페이지에서 isLoading, error 상태 관리:
+
 ```typescript
 const [routes, setRoutes] = useState<Route[]>([]);
 const [isLoading, setIsLoading] = useState(false);
@@ -434,7 +456,7 @@ ResultPage → RouteCard 하단 '알림 받기' 버튼
   → 구독 완료 시 notificationApi.subscribe(...)
 ```
 
-================================================================================
+---
 
 # 5. Core Features
 
@@ -465,7 +487,7 @@ ResultPage → RouteCard 하단 '알림 받기' 버튼
  → Web Push 발송 → notified_30min=true
 ```
 
-================================================================================
+---
 
 # 6. API Design
 
@@ -489,6 +511,7 @@ ResultPage → RouteCard 하단 '알림 받기' 버튼
 ## 6.2 공통 응답 포맷
 
 성공:
+
 ```json
 {
   "success": true,
@@ -499,6 +522,7 @@ ResultPage → RouteCard 하단 '알림 받기' 버튼
 ```
 
 실패:
+
 ```json
 {
   "success": false,
@@ -575,7 +599,7 @@ public enum ErrorCode {
 }
 ```
 
-================================================================================
+---
 
 # 7. Swagger / OpenAPI Strategy
 
@@ -587,10 +611,11 @@ implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
 
 ## 7.2 경로
 
-- Swagger UI  : /swagger-ui.html
-- OpenAPI 3.0 : /v3/api-docs
+- Swagger UI  : `/swagger-ui.html`
+- OpenAPI 3.0 : `/v3/api-docs`
 
-운영 환경 비활성화 (application-prod.yml):
+운영 환경 비활성화 (`application-prod.yml`):
+
 ```yaml
 springdoc:
   api-docs:
@@ -620,6 +645,7 @@ public OpenAPI openAPI() {
 ```
 
 Authorization 헤더:
+
 ```
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
@@ -665,19 +691,19 @@ public class GlobalExceptionHandler {
 }
 ```
 
-================================================================================
+---
 
 # 8. Authentication Strategy
 
 ## 8.1 JWT 설정
 
-| 항목             | 값                            |
-|------------------|-------------------------------|
-| Access Token     | 유효기간 30분                 |
-| Refresh Token    | 유효기간 7일                  |
-| 서명 알고리즘    | HS256                         |
-| AT 저장 (프론트) | 메모리 (AuthContext) 권장     |
-| RT 저장 (서버)   | Redis ("RT:{userId}", TTL 7일)|
+| 항목             | 값                             |
+|------------------|--------------------------------|
+| Access Token     | 유효기간 30분                  |
+| Refresh Token    | 유효기간 7일                   |
+| 서명 알고리즘    | HS256                          |
+| AT 저장 (프론트) | 메모리 (AuthContext) 권장      |
+| RT 저장 (서버)   | Redis (`RT:{userId}`, TTL 7일) |
 
 ## 8.2 RT Rotation
 
@@ -715,7 +741,7 @@ POST /api/v1/auth/logout (인증 필요)
 7. JWT 발급 응답
 ```
 
-================================================================================
+---
 
 # 9. ERD
 
@@ -794,7 +820,7 @@ CREATE TABLE notification_schedule (
 );
 ```
 
-================================================================================
+---
 
 # 10. Last Train Calculation Flow
 
@@ -830,23 +856,23 @@ public DayType resolveDayType(LocalDate date) {
 
 ## 10.3 시간 계산 원칙
 
-모든 시간: ZoneId.of("Asia/Seoul")
-LocalTime.now() 직접 사용 금지.
-ODsay "24:10" 형태 파싱 → Edge Cases 18절 참고.
+- 모든 시간: `ZoneId.of("Asia/Seoul")`
+- `LocalTime.now()` 직접 사용 금지.
+- ODsay `"24:10"` 형태 파싱 → Edge Cases 18절 참고.
 
-================================================================================
+---
 
 # 11. Scheduler & Notification Flow
 
 ## 11.1 변경 이유: DB polling → Redis Delay Queue
 
 기존 DB polling 방식의 문제점:
-- @Scheduled(60초): 최대 60초 알림 지연 발생
-- notified 컬럼: DB가 실행 상태 머신 역할 겸임 (관심사 혼재)
+- `@Scheduled(60초)`: 최대 60초 알림 지연 발생
+- `notified` 컬럼: DB가 실행 상태 머신 역할 겸임 (관심사 혼재)
 - BETWEEN 쿼리 + flag UPDATE: 다중 서버 시 중복 발송 위험
 
 Redis ZSET Delay Queue 방식:
-- @Scheduled(1초) + Redis in-memory 조회: 부하 없이 1초 이내 정확도
+- `@Scheduled(1초)` + Redis in-memory 조회: 부하 없이 1초 이내 정확도
 - Lua script atomic pop: 중복 실행 없음 (scale-out 안전)
 - DB는 순수 저장소 역할만 유지
 
@@ -910,18 +936,18 @@ vapid:
   subject: mailto:admin@example.com
 ```
 
-라이브러리: nl.martijndwars:web-push:5.x.x
+라이브러리: `nl.martijndwars:web-push:5.x.x`
 
-================================================================================
+---
 
 # 12. Event Flow
 
 ## 12.1 적용 이벤트
 
-| 이벤트                      | 발행 시점                        | 동기/비동기 | MVP 리스너  |
-|-----------------------------|----------------------------------|-------------|-------------|
-| UserSignedUpEvent           | AuthService.signup() 완료 후     | @Async 비동기 | 미구현 (향후)|
-| NotificationSubscribedEvent | NotificationService.subscribe() 후 | @Async 비동기 | 미구현 (향후)|
+| 이벤트                      | 발행 시점                           | 동기/비동기   | MVP 리스너   |
+|-----------------------------|-------------------------------------|---------------|--------------|
+| UserSignedUpEvent           | AuthService.signup() 완료 후        | @Async 비동기 | 미구현 (향후)|
+| NotificationSubscribedEvent | NotificationService.subscribe() 후  | @Async 비동기 | 미구현 (향후)|
 
 ## 12.2 코드 예시
 
@@ -949,19 +975,19 @@ public void onSignedUp(UserSignedUpEvent event) {
 일 알림 수백 건 규모. Kafka 운영 비용 불필요.
 DB 기반 @Scheduled 폴링으로 메시지 유실 없음.
 
-================================================================================
+---
 
 # 13. Redis Usage
 
 ## 13.1 사용 범위
 
-| 용도                      | 사용  | 근거                                                    |
-|---------------------------|-------|---------------------------------------------------------|
-| Refresh Token             | ✅    | TTL 자동 만료, RT Rotation, 로그아웃 즉시 무효화        |
-| ODsay 응답 캐싱           | ✅    | 일 3,000 호출 제한 대응. 필수.                          |
-| 알림 Delay Queue (ZSET)   | ✅    | Scheduler execution engine. atomic pop으로 중복 방지.   |
-| API Rate Limiting         | ❌    | MVP 불필요                                              |
-| 실시간 남은시간 캐싱      | ❌    | 클라이언트 카운트다운으로 처리                          |
+| 용도                    | 사용 | 근거                                                  |
+|-------------------------|------|-------------------------------------------------------|
+| Refresh Token           | ✅   | TTL 자동 만료, RT Rotation, 로그아웃 즉시 무효화      |
+| ODsay 응답 캐싱         | ✅   | 일 3,000 호출 제한 대응. 필수.                        |
+| 알림 Delay Queue (ZSET) | ✅   | Scheduler execution engine. atomic pop으로 중복 방지. |
+| API Rate Limiting       | ❌   | MVP 불필요                                            |
+| 실시간 남은시간 캐싱    | ❌   | 클라이언트 카운트다운으로 처리                        |
 
 ## 13.2 Refresh Token
 
@@ -996,7 +1022,7 @@ Worker 실행 시: Lua script atomic ZRANGEBYSCORE + ZREM
 TTL: 없음 (발송 완료 항목은 Worker가 pop 시 자동 제거)
 ```
 
-================================================================================
+---
 
 # 14. Error Handling Strategy
 
@@ -1025,7 +1051,7 @@ if (!fav.getUser().getId().equals(currentUserId))
   throw new AppException(ErrorCode.FAVORITE_ACCESS_DENIED);
 ```
 
-================================================================================
+---
 
 # 15. Performance & Caching
 
@@ -1036,8 +1062,8 @@ Redis 캐싱 필수.
 
 ## 15.2 ODsay 병렬 호출 개선 (향후)
 
-현재: 구간별 막차 조회 직렬 (200ms × 3구간 = 600ms)
-개선: CompletableFuture 병렬 처리 검토
+- 현재: 구간별 막차 조회 직렬 (200ms × 3구간 = 600ms)
+- 개선: CompletableFuture 병렬 처리 검토
 
 ## 15.3 인덱스
 
@@ -1047,7 +1073,7 @@ INDEX idx_schedule_polling ON notification_schedule
   (last_board_time, notified_30min, notified_10min);
 ```
 
-================================================================================
+---
 
 # 16. Security Considerations
 
@@ -1078,7 +1104,7 @@ config.setAllowCredentials(true);
 Geolocation API, Web Push, Service Worker 모두 HTTPS 필수.
 localhost는 예외. 스테이징 환경에서 반드시 확인.
 
-================================================================================
+---
 
 # 17. Frontend State Management
 
@@ -1122,13 +1148,14 @@ const PrivateRoute = ({ children }) => {
 };
 ```
 
-================================================================================
+---
 
 # 18. Edge Cases
 
 ## 18.1 자정 넘김 (최우선 처리)
 
-ODsay 응답 "24:10" 형태 파싱:
+ODsay 응답 `"24:10"` 형태 파싱:
+
 ```java
 public LocalDateTime parseLastBoardTime(String timeStr, LocalDate baseDate) {
   int hour = Integer.parseInt(timeStr.split(":")[0]);
@@ -1138,7 +1165,7 @@ public LocalDateTime parseLastBoardTime(String timeStr, LocalDate baseDate) {
 }
 ```
 
-notification_schedule.last_board_time이 DATETIME이므로 정상 저장.
+`notification_schedule.last_board_time`이 DATETIME이므로 정상 저장.
 프론트 CountdownTimer에서도 동일 처리 (4.7절 참고).
 
 ## 18.2 Timezone
@@ -1183,7 +1210,7 @@ if (favoriteId != null && currentUserId == null) {
 에러 응답 → ODSAY_API_ERROR.
 Redis 캐싱으로 예방. 초과 시 로그 모니터링.
 
-================================================================================
+---
 
 # 19. Technical Decisions
 
@@ -1201,39 +1228,39 @@ Redis 캐싱으로 예방. 초과 시 로그 모니터링.
 | Atomic Design           | 미적용            | 화면 5개 수준, 오버엔지니어링              |
 | 막차 정보 기반          | 정적 시간표       | 실시간 버스 위치 미지원, 안내 문구로 보완  |
 
-================================================================================
+---
 
 # 20. Known Risks
 
-[HIGH] notification_schedule.last_board_time 타입
-- TIME → 자정 넘김 오작동. DATETIME으로 변경 필수.
+> **[HIGH]** notification_schedule.last_board_time 타입
+> - TIME → 자정 넘김 오작동. DATETIME으로 변경 필수.
 
-[HIGH] ODsay 일 3,000 호출 한도
-- 캐싱 없이 700명 이상에서 초과. Redis 캐싱 필수.
+> **[HIGH]** ODsay 일 3,000 호출 한도
+> - 캐싱 없이 700명 이상에서 초과. Redis 캐싱 필수.
 
-[HIGH] HTTPS 미설정
-- GPS, Web Push, Service Worker 불동작. 배포 전 SSL 필수.
+> **[HIGH]** HTTPS 미설정
+> - GPS, Web Push, Service Worker 불동작. 배포 전 SSL 필수.
 
-[MEDIUM] 막차 정보 부정확
-- busLastTime 정적 시간표. 결과 화면 안내 문구 필수.
+> **[MEDIUM]** 막차 정보 부정확
+> - busLastTime 정적 시간표. 결과 화면 안내 문구 필수.
 
-[MEDIUM] AT 새로고침 소실
-- 메모리 저장 → 새로고침 시 소실 → reissue 자동 호출로 복구.
+> **[MEDIUM]** AT 새로고침 소실
+> - 메모리 저장 → 새로고침 시 소실 → reissue 자동 호출로 복구.
 
-[MEDIUM] 알림 발송 실패 재시도 없음
-- MVP 허용. 향후 retry_count 컬럼 + DLQ(Dead Letter Queue) 구조로 확장.
+> **[MEDIUM]** 알림 발송 실패 재시도 없음
+> - MVP 허용. 향후 retry_count 컬럼 + DLQ(Dead Letter Queue) 구조로 확장.
 
-[MEDIUM] Redis 장애 시 알림 유실
-- Redis 재시작 시 notification:queue ZSET이 초기화됨.
-- 대응: Redis persistence(AOF) 활성화 또는 재구독 안내 처리.
+> **[MEDIUM]** Redis 장애 시 알림 유실
+> - Redis 재시작 시 notification:queue ZSET이 초기화됨.
+> - 대응: Redis persistence(AOF) 활성화 또는 재구독 안내 처리.
 
-[LOW] 이메일 중복 Race Condition
-- UNIQUE 제약 + DataIntegrityViolationException 처리로 대응.
+> **[LOW]** 이메일 중복 Race Condition
+> - UNIQUE 제약 + DataIntegrityViolationException 처리로 대응.
 
-[LOW] 카카오 첫 로그인 알림 동의 흐름 미정의
-- 신규 user 생성 시 provider 무관하게 PushConsentModal 표시 권장.
+> **[LOW]** 카카오 첫 로그인 알림 동의 흐름 미정의
+> - 신규 user 생성 시 provider 무관하게 PushConsentModal 표시 권장.
 
-================================================================================
+---
 
 # 21. TODO Before Production
 
@@ -1276,122 +1303,118 @@ Redis 캐싱으로 예방. 초과 시 로그 모니터링.
 - [ ] shedlock (다중 인스턴스)
 - [ ] 이메일 인증
 
-================================================================================
+---
 
 # Review Findings
 
 ## 설계 충돌
 
-[충돌 1] notification_schedule.last_board_time 타입
+**[충돌 1]** notification_schedule.last_board_time 타입
 - 설계 문서: TIME 타입
 - 자정 넘김(24:10 → 00:10) 막차 케이스에서 날짜 정보 없어 스케줄러 오작동
 - 예) 막차 00:10, 30분 전 = 전날 23:40 발송 불가
 - 수정: DATETIME 타입. 알림 예약 시 날짜 포함 저장. (본 문서 9.5절 반영)
 
-[충돌 2] Refresh Token 이중 전략
+**[충돌 2]** Refresh Token 이중 전략
 - 설계 문서: user.refresh_token 컬럼 + Redis 동시 언급
 - 수정: Redis 단일 저장 확정. user 테이블에 컬럼 없이 생성. (본 문서 9.2절 반영)
 
-[충돌 3] 3.3 vs 3.6 Response 구조 불일치
+**[충돌 3]** 3.3 vs 3.6 Response 구조 불일치
 - 3.3: routes[] 배열 / 3.6: lastRoute 단일 객체
 - 수정: routes[] 배열로 통일. (본 문서 6.3절 반영)
 
-[충돌 4] 5.5 데이터 흐름 timetable 문구 잔존
+**[충돌 4]** 5.5 데이터 흐름 timetable 문구 잔존
 - "DB timetable 조회" 문구가 ODsay 단일 API 결정 후에도 남아있음
 - 설계 문서에서 삭제 필요
 
 ## 위험 요소
 
-[위험 1] ODsay 일 호출 한도 초과 (심각도: HIGH)
+**[위험 1]** ODsay 일 호출 한도 초과 (심각도: HIGH)
 - 무캐싱 시 700명 이상에서 초과. 캐싱은 선택이 아닌 필수.
 
-[위험 2] HTTPS 없으면 핵심 기능 전부 불동작 (심각도: HIGH)
+**[위험 2]** HTTPS 없으면 핵심 기능 전부 불동작 (심각도: HIGH)
 - Geolocation, Web Push, Service Worker 모두 HTTPS 필수.
 - localhost에서 테스트 성공해도 배포 후 실패. 스테이징 환경 확인 필수.
 
-[위험 3] 자정 넘김 알림 오발송 (심각도: HIGH)
+**[위험 3]** 자정 넘김 알림 오발송 (심각도: HIGH)
 - TIME 타입 → 개발 후 발견 시 스키마 변경 + 데이터 마이그레이션 필요.
 - 개발 전 DATETIME으로 생성 필수.
 
-[위험 4] ODsay 단일 의존성 (심각도: MEDIUM)
+**[위험 4]** ODsay 단일 의존성 (심각도: MEDIUM)
 - ODsay 장애 시 서비스 전면 불가. 대안 없음.
 - 친절한 에러 메시지 + 모니터링 알림 설정 권장.
 
 ## 누락된 부분
 
-[누락 1] 로그아웃 API 미정의
+**[누락 1]** 로그아웃 API 미정의
 - POST /api/v1/auth/logout 없음. Redis RT 삭제 흐름 필요.
 
-[누락 2] 알림 취소 API 미정의
+**[누락 2]** 알림 취소 API 미정의
 - DELETE /api/v1/notifications/{id} 없음.
 - 사용자가 예약된 알림을 취소할 방법 없음.
 
-[누락 3] notification_subscription 중복 구독 미처리
+**[누락 3]** notification_subscription 중복 구독 미처리
 - 동일 user + endpoint 중복 구독 시 처리 방식 미정의.
 - UNIQUE KEY (user_id, endpoint) + 충돌 시 upsert 처리 필요.
 
-[누락 4] 카카오 첫 로그인 알림 동의 흐름
+**[누락 4]** 카카오 첫 로그인 알림 동의 흐름
 - 이메일 가입만 명시. 카카오 신규 가입 시 동일 모달 여부 미명시.
 - 신규 user 생성 시 provider 무관하게 모달 표시 권장.
 
-[누락 5] Service Worker 등록 코드
+**[누락 5]** Service Worker 등록 코드
 - public/service-worker.js 생성 + 푸시 수신 시 알림 표시 로직 미정의.
 
-[누락 6] 카카오 redirect_uri 설정
+**[누락 6]** 카카오 redirect_uri 설정
 - 로컬/운영 redirect_uri 카카오 개발자센터 등록 필요. 설계 문서 미명시.
 
 ## 성능 이슈 가능성
 
-[성능 1] ODsay API 직렬 호출
+**[성능 1]** ODsay API 직렬 호출
 - 3구간 경로 = 4회 직렬 호출 = 600ms~1,200ms
 - Redis 캐싱으로 1차 완화. 향후 CompletableFuture 병렬 처리 검토.
 
-[성능 2] 알림 스케줄러 인덱스 누락 시 FULL SCAN
+**[성능 2]** 알림 스케줄러 인덱스 누락 시 FULL SCAN
 - INDEX idx_schedule_polling 필수.
 
-[성능 3] 알림 스케줄러 N+1
+**[성능 3]** 알림 스케줄러 N+1
 - schedule → subscription 조회 시 N+1 발생.
 - JOIN FETCH 필수. (11.1절 반영)
 
 ## 운영 리스크
 
-[운영 1] ODsay 장애 시 서비스 전면 중단
+**[운영 1]** ODsay 장애 시 서비스 전면 중단
 - 단일 외부 API 의존. 대안 없음. 장애 모니터링 알림 설정 권장.
 
-[운영 2] VAPID 키 분실 시 기존 구독 전체 무효화
+**[운영 2]** VAPID 키 분실 시 기존 구독 전체 무효화
 - 환경변수 + 안전한 저장소 필수.
 
-[운영 3] ODsay Server 플랫폼 IP 변경 시 인증 실패
+**[운영 3]** ODsay Server 플랫폼 IP 변경 시 인증 실패
 - 배포 서버 IP 변경 시 ODsay 앱 설정 즉시 업데이트 필요. 고정 IP 권장.
 
-[운영 4] 알림 발송 실패 사용자 인지 불가
+**[운영 4]** 알림 발송 실패 사용자 인지 불가
 - 로그만 남기고 진행. 사용자는 알림 미수신 이유 모름.
 - MVP 허용. 향후 실패 카운터 + 안내 추가.
 
 ## 수정 추천사항
 
-[P0 즉시]
+**[P0 즉시]**
 1. DDL: last_board_time → DATETIME
 2. user 테이블: refresh_token 컬럼 없이 생성
 3. notification_subscription: UNIQUE KEY (user_id, endpoint)
 4. 설계 문서 응답 포맷 통일 (routes[] 배열)
 5. 설계 문서 timetable 잔존 문구 삭제
 
-[P1 개발과 함께]
+**[P1 개발과 함께]**
 6. ODsay Redis 캐싱 (필수, 한도 대응)
 7. 로그아웃 API
 8. 알림 취소 API
 9. 자정 넘김 파싱 + 단위 테스트
 10. AT 메모리 저장 + reissue 자동 호출
 
-[P2 배포 전]
+**[P2 배포 전]**
 11. HTTPS 설정
 12. Swagger 운영 비활성화
 13. 환경변수 전체 점검
 14. ODsay 운영 IP 등록
 15. 카카오 redirect_uri 운영 등록
 16. Service Worker + 푸시 수신 코드
-
-================================================================================
- END OF DOCUMENT
-================================================================================
