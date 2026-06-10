@@ -1,12 +1,16 @@
 package com.lasttrain.notification.scheduler;
 
+import com.lasttrain.notification.domain.NotificationSchedule;
+import com.lasttrain.notification.repository.ScheduleRepository;
 import com.lasttrain.notification.service.NotificationQueueService;
+import com.lasttrain.notification.service.WebPushService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Redis Delay Queue 기반 알림 스케줄러
@@ -34,14 +38,11 @@ public class NotificationScheduler {
     // Redis ZSET 조작 전담 서비스
     private final NotificationQueueService queueService;
 
-    // TODO: WebPushService 구현 후 주입
-    //   - VAPID 키로 Web Push 발송하는 서비스
-    //   - 라이브러리: nl.martijndwars:web-push:5.x.x
-    // private final WebPushService webPushService;
+    // scheduleId로 알림 예약 정보 + 구독 정보를 JOIN FETCH로 한 번에 조회합니다.
+    private final ScheduleRepository scheduleRepository;
 
-    // TODO: ScheduleRepository 구현 후 주입
-    //   - scheduleId로 NotificationSchedule + Subscription을 JOIN FETCH 조회
-    // private final ScheduleRepository scheduleRepository;
+    // VAPID 키로 서명한 뒤 브라우저에 Web Push 알림을 발송하는 서비스입니다.
+    private final WebPushService webPushService;
 
     /**
      * Redis Delay Queue Worker
@@ -96,22 +97,39 @@ public class NotificationScheduler {
 
             log.info("[Push 발송 시작] scheduleId={}, minutesBefore={}분", scheduleId, minutesBefore);
 
-            // ② DB에서 알림 예약 정보 + 구독 정보 조회
-            // TODO: ScheduleRepository 구현 후 아래 코드로 교체
+            // ② DB에서 알림 예약 정보 + 구독 정보를 한 번에 조회합니다.
             //
-            // NotificationSchedule schedule = scheduleRepository
-            //     .findWithSubscription(scheduleId)  // JOIN FETCH로 N+1 방지
-            //     .orElseThrow(() -> new IllegalStateException(
-            //         "알림 예약 없음: scheduleId=" + scheduleId));
+            // findByIdWithSubscription()은 JOIN FETCH를 사용합니다.
+            // 일반 findById()를 쓰면 subscription, user를 각각 추가 조회해서 쿼리가 3번 나갑니다.
+            // JOIN FETCH를 쓰면 쿼리 1번으로 끝납니다. (N+1 문제 방지)
+            Optional<NotificationSchedule> scheduleOpt =
+                    scheduleRepository.findByIdWithSubscription(scheduleId);
 
-            // ③ 알림 메시지 생성 및 WebPush 발송
-            // TODO: WebPushService 구현 후 아래 코드로 교체
+            // 구독이 취소됐거나 DB에 없는 경우를 방어적으로 처리합니다.
+            // 예외를 던지지 않고 로그만 남기고 다음 항목으로 넘깁니다.
+            if (scheduleOpt.isEmpty()) {
+                log.warn("[알림 예약 없음] 이미 취소된 예약이거나 DB에 없습니다. scheduleId={}", scheduleId);
+                return;
+            }
+
+            NotificationSchedule schedule = scheduleOpt.get();
+
+            // ③ 알림 메시지를 생성합니다.
             //
-            // String message = minutesBefore == 30
-            //     ? "막차까지 30분 남았어요! " + schedule.getOrigin() + " → " + schedule.getDestination()
-            //     : "막차까지 10분 남았어요! 지금 출발하세요!";
+            // 몇 분 전인지에 따라 메시지를 다르게 구성합니다.
+            // origin과 destination을 포함해서 사용자가 어느 경로의 막차인지 알 수 있게 합니다.
+            String message = String.format(
+                    "막차까지 %d분 남았어요! %s → %s",
+                    minutesBefore,
+                    schedule.getOrigin(),
+                    schedule.getDestination()
+            );
+
+            // ④ Web Push 알림을 발송합니다.
             //
-            // webPushService.send(schedule.getSubscription(), message);
+            // send() 내부에서 발송 실패 시 예외를 던지지 않고 로그만 남깁니다.
+            // 따라서 이 호출이 실패해도 processItem()은 정상 종료됩니다.
+            webPushService.send(schedule.getSubscription(), message);
 
             log.info("[Push 발송 완료] scheduleId={}", scheduleId);
 
