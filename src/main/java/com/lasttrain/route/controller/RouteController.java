@@ -2,11 +2,13 @@ package com.lasttrain.route.controller;
 
 import com.lasttrain.global.response.ApiResponse;
 import com.lasttrain.route.dto.RouteResponse;
+import com.lasttrain.route.service.RouteService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -15,7 +17,10 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Route", description = "막차 경로 조회")
 @RequestMapping("/api/v1")
 @RestController
+@RequiredArgsConstructor
 public class RouteController {
+
+    private final RouteService routeService;
 
     @SecurityRequirements({})
     @Operation(
@@ -57,7 +62,11 @@ public class RouteController {
             @Parameter(description = "즐겨찾기 ID (선택, 로그인 필요)", example = "1")
             @RequestParam(required = false) Long favoriteId
     ) {
-        // TODO: routeService.findLastTrainRoutes(originLat, originLng, originName, destLat, destLng, destName, favoriteId)
-        return ApiResponse.ok(null);
+        // TODO: favoriteId가 전달되면 즐겨찾기에 저장된 목적지 좌표/명칭으로 덮어쓰는 로직 구현 (추후 구현)
+
+        RouteResponse response = routeService.findLastTrainRoutes(
+                originLat, originLng, originName, destLat, destLng, destName);
+
+        return ApiResponse.ok(response);
     }
 }
