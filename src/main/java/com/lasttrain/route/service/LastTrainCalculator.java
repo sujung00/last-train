@@ -15,6 +15,8 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * ODsay 경로 JSON을 파싱해서 각 경로의 막차 탑승 마감 시각(departureDeadline)을 계산합니다.
@@ -63,6 +65,8 @@ public class LastTrainCalculator {
                                         .path("result")
                                         .path("path");
 
+            log.debug("[DEBUG] paths 개수: {}", paths.size());
+
             // 요일에 따라 ODsay dayType 코드를 결정합니다. (평일=1, 토=2, 일=3)
             String dayType = resolveDayType(now.getDayOfWeek());
 
@@ -95,6 +99,8 @@ public class LastTrainCalculator {
      */
     private RouteResponse.RouteItem processPath(JsonNode path, LocalDateTime now, String dayType)
             throws Exception {
+
+        log.debug("[DEBUG] path 처리 시작: pathType={}", path.path("pathType").asInt());
 
         JsonNode subPaths = path.path("subPath");
 
@@ -130,7 +136,7 @@ public class LastTrainCalculator {
                     // 첫 번째 지하철 구간의 탑승역 ID로 막차 시간표를 조회합니다.
                     String startId = subPath.path("startID").asText();
                     String scheduleJson = odsayClient.searchSubwaySchedule(startId, dayType);
-                    lastTrainTime = extractLastTrainTime(scheduleJson, now.toLocalDate());
+                    lastTrainTime = extractLastTrainTime(scheduleJson, now.toLocalDate(), dayType);
 
                     if (lastTrainTime == null) {
                         log.warn("[LastTrainCalculator] 막차 시각 추출 실패, stationId={}", startId);
@@ -179,52 +185,101 @@ public class LastTrainCalculator {
     }
 
     /**
-     * ODsay subwayTimeTable(firstLastFlag=2) 응답에서 막차 시각을 추출합니다.
+     * ODsay subwayTimeTable 응답에서 막차 시각을 추출합니다.
      *
-     * ODsay 응답 구조 (lastRow 배열):
-     *   result.lastRow[0].trainY = "2311"  (HHmm 형식, 24시간 초과 가능)
+     * ── ODsay 응답 구조 ────────────────────────────────────────────────────────
+     * 요일 유형에 따라 아래 3개 목록 중 하나를 사용합니다.
+     *   평일   → result.OrdList.down.time[]
+     *   토요일 → result.SatList.down.time[]
+     *   일요일 → result.SunList.down.time[]
+     *
+     * time[] 배열의 각 항목 구조 (시간대별 묶음):
+     *   {"Idx": 23, "list": "10(온수) 18(석남) 28(온수) 38(석남) 47(온수) 57(석남)"}
+     *     - Idx  : 시(hour) 값
+     *     - list : 그 시간대에 출발하는 열차들의 "분(목적지)" 목록을 공백으로 나열한 문자열
+     *
+     * 막차 시각 = time[] 배열의 마지막 항목 (가장 늦은 시간대)의
+     *            Idx(시) + list의 마지막 "분" 값
+     * ────────────────────────────────────────────────────────────────────────────
      *
      * @param scheduleJson ODsay subwayTimeTable 응답 JSON
      * @param baseDate     계산 기준 날짜 (자정 넘김 처리용)
+     * @param dayType      요일 구분 ("1"=평일, "2"=토요일, "3"=일요일)
      * @return 막차 LocalDateTime, 파싱 실패 시 null
      */
-    private LocalDateTime extractLastTrainTime(String scheduleJson, LocalDate baseDate)
+    private LocalDateTime extractLastTrainTime(String scheduleJson, LocalDate baseDate, String dayType)
             throws Exception {
 
-        JsonNode lastRow = objectMapper.readTree(scheduleJson)
-                                       .path("result")
-                                       .path("lastRow");
+        // dayType에 맞는 목록(OrdList/SatList/SunList)의 이름을 결정합니다.
+        String listName = switch (dayType) {
+            case "2" -> "SatList";
+            case "3" -> "SunList";
+            default  -> "OrdList";
+        };
 
-        if (!lastRow.isArray() || lastRow.isEmpty()) {
+        JsonNode timeList = objectMapper.readTree(scheduleJson)
+                                        .path("result")
+                                        .path(listName)
+                                        .path("down")
+                                        .path("time");
+
+        if (!timeList.isArray() || timeList.isEmpty()) {
             return null;
         }
 
-        // trainY: "HHmm" 형식의 시각 문자열 (예: "2311", "2410")
-        String trainY = lastRow.get(0).path("trainY").asText();
-        if (trainY.isBlank() || trainY.length() < 4) {
+        // 배열의 마지막 항목이 가장 늦은 시간대 = 막차가 포함된 시간대입니다.
+        JsonNode lastTimeGroup = timeList.get(timeList.size() - 1);
+
+        int hour = lastTimeGroup.path("Idx").asInt();
+        String list = lastTimeGroup.path("list").asText();
+
+        // list 문자열에서 마지막 "분" 값을 추출합니다.
+        Integer minute = extractLastMinute(list);
+        if (minute == null) {
             return null;
         }
 
-        return parseTrainY(trainY, baseDate);
+        return buildLastTrainDateTime(hour, minute, baseDate);
     }
 
     /**
-     * ODsay "HHmm" 형식의 시각 문자열을 LocalDateTime으로 변환합니다.
+     * "분(역명) 분(역명) ..." 형식의 문자열에서 마지막 "분" 값을 추출합니다.
+     *
+     * 예) "10(온수) 18(석남) 28(온수) 38(석남) 47(온수) 57(석남)" → 57
+     *
+     * 정규식 "(\\d+)\\(" 으로 "숫자(" 패턴을 모두 찾고, 가장 마지막으로 찾은 숫자를 반환합니다.
+     *
+     * @return 마지막 "분" 값, list가 비어있거나 패턴이 없으면 null
+     */
+    private Integer extractLastMinute(String list) {
+        if (list == null || list.isBlank()) {
+            return null;
+        }
+
+        Matcher matcher = Pattern.compile("(\\d+)\\(").matcher(list);
+
+        Integer lastMinute = null;
+        while (matcher.find()) {
+            lastMinute = Integer.parseInt(matcher.group(1));
+        }
+
+        return lastMinute;
+    }
+
+    /**
+     * 막차의 시(hour)와 분(minute)을 LocalDateTime으로 변환합니다.
      *
      * 자정 넘김 처리:
-     *   ODsay는 자정 이후 열차를 24시간 이상 표기합니다.
-     *   예) "2410" → 다음날 00:10
-     *       "2503" → 다음날 01:03
+     *   ODsay는 자정 이후 열차의 시(Idx)를 24 이상으로 표기합니다.
+     *   예) Idx=24, minute=10 → 다음날 00:10
+     *       Idx=25, minute=3  → 다음날 01:03
      */
-    private LocalDateTime parseTrainY(String trainY, LocalDate baseDate) {
-        int hour = Integer.parseInt(trainY.substring(0, 2));
-        int min  = Integer.parseInt(trainY.substring(2, 4));
-
+    private LocalDateTime buildLastTrainDateTime(int hour, int minute, LocalDate baseDate) {
         if (hour >= 24) {
             // 자정 넘긴 막차: 기준 날짜의 다음날로 계산합니다.
-            return baseDate.plusDays(1).atTime(hour - 24, min);
+            return baseDate.plusDays(1).atTime(hour - 24, minute);
         }
-        return baseDate.atTime(hour, min);
+        return baseDate.atTime(hour, minute);
     }
 
     /**

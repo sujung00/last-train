@@ -6,7 +6,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
+
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 /**
  * ODsay API를 실제로 호출하는 구현체입니다.
@@ -49,21 +52,27 @@ public class OdsayClientImpl implements OdsayClient {
      */
     @Override
     public String searchRoute(double sx, double sy, double ex, double ey) {
-        // UriComponentsBuilder를 사용하면 queryParam 값이 자동으로 URL 인코딩됩니다.
-        // (예: apiKey에 특수문자가 있어도 안전하게 인코딩됨)
-        String url = UriComponentsBuilder
-                .fromHttpUrl(baseUrl + "/searchPubTransPathT")
-                .queryParam("apiKey", apiKey)
-                .queryParam("SX", sx)       // 출발지 경도
-                .queryParam("SY", sy)       // 출발지 위도
-                .queryParam("EX", ex)       // 목적지 경도
-                .queryParam("EY", ey)       // 목적지 위도
-                .queryParam("SearchPathType", 0) // 0=버스+지하철 통합 경로
-                .toUriString();
+        log.debug("[ODsay] apiKey 확인: {}", apiKey);
+
+        // apiKey에 특수문자(+, /, = 등)가 포함될 수 있으므로 URL 인코딩을 직접 적용합니다.
+        String encodedApiKey = URLEncoder.encode(apiKey, StandardCharsets.UTF_8);
+
+        String url = baseUrl + "/searchPubTransPathT"
+                + "?apiKey=" + encodedApiKey
+                + "&SX=" + sx       // 출발지 경도
+                + "&SY=" + sy       // 출발지 위도
+                + "&EX=" + ex       // 목적지 경도
+                + "&EY=" + ey       // 목적지 위도
+                + "&SearchPathType=0"; // 0=버스+지하철 통합 경로
+
+        log.debug("[ODsay] 실제 URL: {}", url);
 
         try {
             log.debug("[ODsay] 경로 조회 요청: SX={}, SY={}, EX={}, EY={}", sx, sy, ex, ey);
-            String response = restTemplate.getForObject(url, String.class);
+            // url 문자열은 이미 URLEncoder로 인코딩되어 있으므로,
+            // URI 객체로 그대로 전달해 RestTemplate의 재인코딩을 방지합니다.
+            URI uri = URI.create(url);
+            String response = restTemplate.getForObject(uri, String.class);
             log.debug("[ODsay] 경로 조회 성공");
             return response;
         } catch (Exception e) {
@@ -86,17 +95,21 @@ public class OdsayClientImpl implements OdsayClient {
      */
     @Override
     public String searchSubwaySchedule(String stationId, String dayType) {
-        String url = UriComponentsBuilder
-                .fromHttpUrl(baseUrl + "/subwayTimeTable")
-                .queryParam("apiKey", apiKey)
-                .queryParam("stationID", stationId)
-                .queryParam("dayType", dayType)   // 1=평일, 2=토요일, 3=일요일
-                .queryParam("firstLastFlag", 2)   // 2=막차 고정
-                .toUriString();
+        // apiKey에 특수문자(+, /, = 등)가 포함될 수 있으므로 URL 인코딩을 직접 적용합니다.
+        String encodedApiKey = URLEncoder.encode(apiKey, StandardCharsets.UTF_8);
+
+        String url = baseUrl + "/subwayTimeTable"
+                + "?apiKey=" + encodedApiKey
+                + "&stationID=" + stationId
+                + "&dayType=" + dayType    // 1=평일, 2=토요일, 3=일요일
+                + "&firstLastFlag=2";      // 2=막차 고정
 
         try {
             log.debug("[ODsay] 지하철 시간표 조회 요청: stationId={}, dayType={}", stationId, dayType);
-            String response = restTemplate.getForObject(url, String.class);
+            // url 문자열은 이미 URLEncoder로 인코딩되어 있으므로,
+            // URI 객체로 그대로 전달해 RestTemplate의 재인코딩을 방지합니다.
+            URI uri = URI.create(url);
+            String response = restTemplate.getForObject(uri, String.class);
             log.debug("[ODsay] 지하철 시간표 조회 성공");
             return response;
         } catch (Exception e) {

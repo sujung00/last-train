@@ -75,6 +75,7 @@ public class RouteService {
             // 캐시 미스: ODsay API를 직접 호출하고 결과를 캐시에 저장합니다.
             log.debug("[RouteService] 캐시 미스, ODsay API 호출: key={}", cacheKey);
             routeJson = odsayClient.searchRoute(originLng, originLat, destLng, destLat);
+            log.debug("[DEBUG] ODsay 응답: {}", routeJson.substring(0, Math.min(500, routeJson.length())));
             redisTemplate.opsForValue().set(cacheKey, routeJson, CACHE_TTL_HOURS, TimeUnit.HOURS);
         } else {
             // 캐시 히트: ODsay API를 호출하지 않고 캐시된 JSON을 그대로 사용합니다.
