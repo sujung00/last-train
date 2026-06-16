@@ -39,14 +39,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @DisplayName("FavoriteService 테스트")
 class FavoriteServiceTest extends TestContainerConfig {
 
-    // Colima(macOS Docker 대안) 환경에서 Docker 소켓 경로를 직접 지정합니다.
-    static {
-        System.setProperty("docker.host",
-                "unix:///Users/sujung/.colima/default/docker.sock");
-        System.setProperty("DOCKER_HOST",
-                "unix:///Users/sujung/.colima/default/docker.sock");
-    }
-
     @Autowired
     private FavoriteService favoriteService;
 
