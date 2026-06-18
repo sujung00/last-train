@@ -50,6 +50,7 @@ odsay:
 kakao:
   client-id: ${KAKAO_CLIENT_ID}
   client-secret: ${KAKAO_CLIENT_SECRET}
+  redirect-uri: ${KAKAO_REDIRECT_URI}
 
 # ── VAPID (Web Push) ─────────────────────────────────────────────────────────
 # npx web-push generate-vapid-keys 로 키 생성
