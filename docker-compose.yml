@@ -1,12 +1,11 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # docker-compose.yml — 막차 알리미 로컬 개발 환경
 #
-# 포함 서비스: MySQL 8, Redis 7
-# Spring Boot 앱은 IntelliJ에서 직접 실행하는 것을 가정한다.
+# 포함 서비스: MySQL 8, Redis 7, Spring Boot 앱(app)
 #
 # 실행 방법:
-#   cp .env.example .env   # 처음 한 번만
-#   docker compose up -d
+#   cp .env.example .env   # 처음 한 번만, 실제 값 입력
+#   docker compose up -d --build
 #
 # 종료:
 #   docker compose down
@@ -56,6 +55,30 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # ── Spring Boot 앱 ────────────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: last-train-app
+    ports:
+      - "8080:8080"
+    # .env 파일의 모든 값을 기본으로 주입한다.
+    env_file:
+      - .env
+    # mysql, redis는 도커 네트워크 안에서 서비스 이름으로 접근해야 하므로
+    # .env의 localhost 기준 값(IntelliJ 직접 실행용)을 컨테이너 내부 전용 값으로 덮어쓴다.
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   mysql-data:
