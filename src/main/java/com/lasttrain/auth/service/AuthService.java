@@ -22,7 +22,7 @@ public class AuthService {
 
     // Redis에 Refresh Token을 저장할 때 사용하는 키 접두사
     // 저장 형식: "RT:{userId}" → refreshToken 값
-    static final String RT_PREFIX = "RT:";
+    public static final String RT_PREFIX = "RT:";
 
     private static final long RT_TTL_DAYS = 7; // Refresh Token 유효기간 (일)
 
