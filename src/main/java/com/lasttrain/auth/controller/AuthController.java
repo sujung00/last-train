@@ -1,6 +1,5 @@
 package com.lasttrain.auth.controller;
 
-import com.lasttrain.auth.dto.KakaoLoginRequest;
 import com.lasttrain.auth.dto.LoginRequest;
 import com.lasttrain.auth.dto.SignupRequest;
 import com.lasttrain.auth.dto.TokenResponse;
@@ -55,18 +54,6 @@ public class AuthController {
     public ApiResponse<TokenResponse> login(@Valid @RequestBody LoginRequest request) {
         // 이메일/비밀번호 검증 후 Access Token + Refresh Token 발급
         return ApiResponse.ok(authService.login(request));
-    }
-
-    @Operation(summary = "카카오 소셜 로그인",
-            description = "프론트에서 카카오 인가 코드를 받아 백엔드로 전달. 백엔드에서 카카오 토큰 교환 후 JWT 발급.")
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인/회원가입 성공")
-    })
-    @SecurityRequirements({})
-    @PostMapping("/kakao")
-    public ApiResponse<TokenResponse> kakaoLogin(@Valid @RequestBody KakaoLoginRequest request) {
-        // TODO: AuthService에 kakaoLogin(String code) 구현 후 authService.kakaoLogin(request.code()) 호출
-        return ApiResponse.ok(null);
     }
 
     @Operation(summary = "Access Token 재발급",
