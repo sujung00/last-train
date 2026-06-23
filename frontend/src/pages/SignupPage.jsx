@@ -2,38 +2,39 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import api from '../api/axios'
 
-export default function LoginPage() {
+export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [passwordConfirm, setPasswordConfirm] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
 
-  const handleLogin = async (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault()
     setError('')
+
+    // 비밀번호 확인 검사
+    if (password !== passwordConfirm) {
+      setError('비밀번호가 일치하지 않습니다.')
+      return
+    }
+
+    if (password.length < 8) {
+      setError('비밀번호는 8자 이상이어야 합니다.')
+      return
+    }
+
     setLoading(true)
 
     try {
-      const response = await api.post('/api/v1/auth/login', { email, password })
-      const { accessToken, refreshToken } = response.data
-
-      localStorage.setItem('accessToken', accessToken)
-      localStorage.setItem('refreshToken', refreshToken)
-
-      navigate('/')
+      await api.post('/api/v1/auth/signup', { email, password })
+      navigate('/login')
     } catch (err) {
-      setError(err.response?.data?.message || '로그인 실패. 다시 시도해주세요.')
+      setError(err.response?.data?.message || '회원가입 실패. 다시 시도해주세요.')
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleKakaoLogin = () => {
-    const clientId = import.meta.env.VITE_KAKAO_CLIENT_ID
-    const redirectUri = 'http://localhost:3000/auth/kakao/callback'
-    const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code`
-    window.location.href = kakaoAuthUrl
   }
 
   return (
@@ -42,11 +43,11 @@ export default function LoginPage() {
         {/* 타이틀 */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-white mb-2">막차알리미 🚂</h1>
-          <p className="text-gray-300">오늘도 막차 놓치지 마세요</p>
+          <p className="text-xl text-gray-300 font-semibold">회원가입</p>
         </div>
 
-        {/* 로그인 폼 */}
-        <form onSubmit={handleLogin} className="space-y-4">
+        {/* 회원가입 폼 */}
+        <form onSubmit={handleSignup} className="space-y-4">
           {/* 에러 메시지 */}
           {error && (
             <div className="bg-red-500 bg-opacity-20 border border-red-500 text-red-200 px-4 py-3 rounded">
@@ -75,44 +76,42 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="비밀번호를 입력하세요"
+              placeholder="8자 이상의 비밀번호"
               className="w-full px-4 py-3 bg-gray-700 text-white rounded focus:outline-none focus:bg-gray-600 transition"
               required
               disabled={loading}
             />
           </div>
 
-          {/* 로그인 버튼 */}
+          {/* 비밀번호 확인 입력 */}
+          <div>
+            <label className="block text-white text-sm font-medium mb-2">비밀번호 확인</label>
+            <input
+              type="password"
+              value={passwordConfirm}
+              onChange={(e) => setPasswordConfirm(e.target.value)}
+              placeholder="비밀번호를 다시 입력하세요"
+              className="w-full px-4 py-3 bg-gray-700 text-white rounded focus:outline-none focus:bg-gray-600 transition"
+              required
+              disabled={loading}
+            />
+          </div>
+
+          {/* 회원가입 버튼 */}
           <button
             type="submit"
             disabled={loading}
             className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded transition disabled:bg-gray-600 disabled:cursor-not-allowed"
           >
-            {loading ? '로그인 중...' : '로그인'}
+            {loading ? '회원가입 중...' : '회원가입'}
           </button>
         </form>
 
-        {/* 구분선 */}
-        <div className="flex items-center my-6">
-          <div className="flex-grow border-t border-gray-600"></div>
-          <span className="px-3 text-gray-400 text-sm">또는</span>
-          <div className="flex-grow border-t border-gray-600"></div>
-        </div>
-
-        {/* 카카오로 로그인 버튼 */}
-        <button
-          onClick={handleKakaoLogin}
-          disabled={loading}
-          className="w-full bg-[#FEE500] hover:bg-yellow-300 text-black font-bold py-3 rounded transition disabled:bg-gray-600 disabled:cursor-not-allowed"
-        >
-          카카오로 로그인
-        </button>
-
-        {/* 회원가입 링크 */}
+        {/* 로그인 링크 */}
         <div className="text-center mt-6">
-          <span className="text-gray-400">계정이 없으신가요? </span>
-          <Link to="/signup" className="text-purple-400 hover:text-purple-300 font-medium transition">
-            회원가입
+          <span className="text-gray-400">이미 계정이 있으신가요? </span>
+          <Link to="/login" className="text-purple-400 hover:text-purple-300 font-medium transition">
+            로그인
           </Link>
         </div>
       </div>

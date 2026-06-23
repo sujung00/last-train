@@ -61,3 +61,5 @@ src/main/resources/application-prod.yml
 
 # Personal troubleshooting notes
 /docs/trouble-shooting/
+
+.env.local
