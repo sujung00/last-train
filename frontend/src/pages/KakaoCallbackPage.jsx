@@ -1,12 +1,16 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import api from '../api/axios'
 
 export default function KakaoCallbackPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const processedRef = useRef(false)
 
   useEffect(() => {
+    if (processedRef.current) return
+    processedRef.current = true
+
     const handleKakaoCallback = async () => {
       const code = searchParams.get('code')
 

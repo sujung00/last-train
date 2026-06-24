@@ -49,6 +49,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/signup",
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/kakao",
+                                "/api/v1/auth/kakao/callback",
                                 "/api/v1/auth/reissue"
                         ).permitAll()
                         // 막차 조회 - 비회원 허용
