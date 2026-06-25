@@ -52,6 +52,13 @@ kakao:
   client-secret: ${KAKAO_CLIENT_SECRET}
   redirect-uri: ${KAKAO_REDIRECT_URI}
 
+# ── Seoul Bus API ────────────────────────────────────────────────────────────
+# 서울시 버스 도착 정보 API
+seoul:
+  bus:
+    api-key: ${SEOUL_BUS_API_KEY}
+    base-url: http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList
+
 # ── VAPID (Web Push) ─────────────────────────────────────────────────────────
 # npx web-push generate-vapid-keys 로 키 생성
 # VAPID_PRIVATE_KEY 유실 시 기존 구독 전체 무효화됨 — 안전한 보관 필수

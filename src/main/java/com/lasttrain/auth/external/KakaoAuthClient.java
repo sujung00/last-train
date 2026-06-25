@@ -48,7 +48,8 @@ public class KakaoAuthClient {
     private final ObjectMapper objectMapper;
 
     // HTTP 요청을 보내는 Spring 기본 HTTP 클라이언트입니다.
-    private final RestTemplate restTemplate = new RestTemplate();
+    // AppConfig에서 Bean으로 등록되어 @RequiredArgsConstructor로 자동 주입됩니다.
+    private final RestTemplate restTemplate;
 
     /**
      * 인가 코드(code)를 카카오 액세스 토큰으로 교환합니다.
