@@ -59,6 +59,13 @@ seoul:
     api-key: ${SEOUL_BUS_API_KEY}
     base-url: http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList
 
+# ── Gyeonggi Bus API ──────────────────────────────────────────────────────────
+# 경기도 버스 노선 정보 API
+gyeonggi:
+  bus:
+    api-key: ${GYEONGGI_BUS_API_KEY}
+    route-base-url: https://apis.data.go.kr/6410000/busrouteservice/v2/getBusRouteInfoItemv2
+
 # ── VAPID (Web Push) ─────────────────────────────────────────────────────────
 # npx web-push generate-vapid-keys 로 키 생성
 # VAPID_PRIVATE_KEY 유실 시 기존 구독 전체 무효화됨 — 안전한 보관 필수
