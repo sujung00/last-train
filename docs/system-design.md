@@ -25,10 +25,12 @@
   ▼
 [Spring Boot API Server]
   │
-  ├── [MySQL]      - 회원, 즐겨찾기, 알림 구독/예약
-  ├── [Redis]      - Refresh Token, ODsay 응답 캐싱, Delay Queue
-  ├── [ODsay API]  - 경로 탐색 + 막차 시간표 (Server 플랫폼, IP 인증)
-  └── [Kakao API]  - OAuth2.0 (백엔드에서만 호출)
+  ├── [MySQL]             - 회원, 즐겨찾기, 알림 구독/예약
+  ├── [Redis]             - Refresh Token, 응답 캐싱, Delay Queue
+  ├── [ODsay API]         - 경로 탐색 + 지하철/버스 막차 시간표 (Server 플랫폼, IP 인증)
+  ├── [서울시 버스 API]   - 버스 도착 정보 (실시간, REST)
+  ├── [경기도 버스 API]   - 버스 노선 정보 (요일별 막차, REST)
+  └── [Kakao API]         - OAuth2.0 (백엔드에서만 호출)
 
 [Redis Delay Queue Worker - 1초]
   └── notification:queue (ZSET) polling → Web Push (VAPID) 발송
@@ -84,15 +86,46 @@
 - MyBatis 대비 객체 지향 설계 + 직접 경험 목적
 - 복잡 조회 필요 시 JPQL로 충분. QueryDSL은 MVP 범위 외.
 
-## 2.2 ODsay 단일 API
+## 2.2 외부 대중교통 API 전략
 
-- searchSubwaySchedule (firstLastFlag=2) → 지하철 막차
-- searchBusLane (busLastTime) → 버스 막차 (정적 시간표, 경기도 포함)
-- 경기도 버스 API는 "실시간 도착 정보" 미지원. 본 서비스는 실시간 위치 불필요.
-- 경기도 버스 API 별도 연동 시 복잡도 대비 효과 낮음 → 제거.
+### 2.2.1 ODsay API (주요 경로 탐색)
+
+- **searchSubwaySchedule** (firstLastFlag=2) → 지하철 막차
+- **searchBusLane** (busLastTime) → 버스 막차 (정적 시간표, 서울/경기도 포함)
+- **특징**: Server 플랫폼 (IP 기반 인증), 캐싱 필수 (일 3,000 호출 제한)
 
 > **주의**: busLastTime은 정적 시간표 기반.
 > 실제 버스 결행/지연은 반영 안 됨 → 결과 화면 안내 문구 필수.
+
+### 2.2.2 서울시/경기도 버스 API (실시간 보충)
+
+**추가 연동 이유:**
+- ODsay의 버스 시간표는 "정적" 기반 → 실제 막차와 차이 가능성
+- 더 정확한 요일별 막차 시간 필요 → 별도 API 연동
+
+**구현:**
+- **SeoulBusArrivalClient**: 서울시 버스 도착 정보 (실시간, REST)
+  - Endpoint: http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList
+  - 파라미터: stId (정류소), busRouteId (노선), ord (버스 순번)
+  - 응답: XML → lastTm (yyyyMMddHHmmss) 파싱
+
+- **GyeonggiBusRouteClient**: 경기도 버스 노선 정보 (요일별 막차)
+  - Endpoint: https://apis.data.go.kr/6410000/busrouteservice/v2/getBusRouteInfoItemv2
+  - 파라미터: routeId (노선 ID), format=json
+  - 응답: JSON → 요일별 필드 (upLastTime, satUpLastTime, sunUpLastTime)
+  - 로직: LocalDate.now().getDayOfWeek()로 오늘 요일 판단 → 해당 필드 사용
+
+**캐싱 전략:**
+- 버스 도착 정보: 실시간성 중시 → 캐싱 미적용 (또는 짧은 TTL)
+- 노선 정보 (막차): 변화 적음 → 1일 또는 수동 무효화
+
+### 2.2.3 API 선택 및 우선순위
+
+| 조회 유형 | 주 API | 보조 API | 용도 |
+|----------|--------|---------|------|
+| 경로 탐색 | ODsay searchSubwaySchedule + searchBusLane | - | 목적지까지 막차 경로 안내 |
+| 버스 막차 (정확도) | Gyeonggi (노선 정보) + Seoul (도착 정보) | ODsay busLastTime | 실시간 + 정적 시간표 하이브리드 |
+| 지하철 막차 | ODsay searchSubwaySchedule | - | 지하철은 ODsay 단일 사용 |
 
 ## 2.3 Redis 도입
 
