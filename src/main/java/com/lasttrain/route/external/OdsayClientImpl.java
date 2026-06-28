@@ -2,6 +2,7 @@ package com.lasttrain.route.external;
 
 import com.lasttrain.global.exception.AppException;
 import com.lasttrain.global.exception.ErrorCode;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -25,6 +26,7 @@ import java.nio.charset.StandardCharsets;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class OdsayClientImpl implements OdsayClient {
 
     // application.yml의 odsay.api-key 값을 주입받습니다.
@@ -38,8 +40,8 @@ public class OdsayClientImpl implements OdsayClient {
     private String baseUrl;
 
     // HTTP 요청을 보내는 Spring 기본 HTTP 클라이언트입니다.
-    // 별도 Bean 없이 직접 생성해서 사용합니다.
-    private final RestTemplate restTemplate = new RestTemplate();
+    // AppConfig에서 Bean으로 등록되어 @RequiredArgsConstructor로 자동 주입됩니다.
+    private final RestTemplate restTemplate;
 
     /**
      * 출발지→목적지 대중교통 경로를 ODsay에서 조회합니다.
