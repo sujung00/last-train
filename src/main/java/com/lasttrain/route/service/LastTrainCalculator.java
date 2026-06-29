@@ -2,6 +2,8 @@ package com.lasttrain.route.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lasttrain.bus.external.GyeonggiBusRouteClient;
+import com.lasttrain.bus.external.SeoulBusArrivalClient;
 import com.lasttrain.route.dto.RouteResponse;
 import com.lasttrain.route.dto.TransferDto;
 import com.lasttrain.route.external.OdsayClient;
@@ -14,7 +16,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -41,6 +45,8 @@ import java.util.regex.Pattern;
 public class LastTrainCalculator {
 
     private final OdsayClient odsayClient;
+    private final SeoulBusArrivalClient seoulBusArrivalClient;
+    private final GyeonggiBusRouteClient gyeonggiBusRouteClient;
 
     // Spring Boot가 자동 구성하는 ObjectMapper를 주입받습니다.
     // JSON 문자열을 JsonNode 트리로 파싱할 때 사용합니다.
@@ -95,7 +101,15 @@ public class LastTrainCalculator {
 
     /**
      * path 1건을 처리해서 RouteItem을 반환합니다.
-     * 지하철 구간이 없거나 막차 시각을 얻지 못하면 null을 반환합니다.
+     *
+     * 알고리즘:
+     *   1) 모든 대중교통(지하철/버스) 구간의 막차 시각을 candidateList에 수집
+     *   2) candidateList에서 "가장 이른 막차"를 가진 구간을 병목으로 선택
+     *      (경로 중 하나의 구간이라도 막차 시각이 빠르면 그것이 제약)
+     *   3) departureDeadline = 병목의 막차 시각 - 병목 탑승 전까지의 시간
+     *   4) transfers에는 모든 대중교통 구간 표시 (각각의 막차 시각)
+     *
+     * 막차 정보를 얻지 못하면 null을 반환합니다.
      */
     private RouteResponse.RouteItem processPath(JsonNode path, LocalDateTime now, String dayType)
             throws Exception {
@@ -104,75 +118,123 @@ public class LastTrainCalculator {
 
         JsonNode subPaths = path.path("subPath");
 
-        // ── 1단계: subPath 순회해서 첫 번째 지하철 구간 탐색 ─────────────────────────
+        // ── 1단계: 모든 대중교통 구간의 막차 시각 수집 ────────────────────────────────
         //
-        // priorSectionTime: 지하철 탑승 전까지 걸리는 누적 시간 (분)
-        //   예) [도보 5분] → [버스 10분] → [지하철] → priorSectionTime = 15분
-        int priorSectionTime = 0;
-        boolean foundSubway  = false;
-        LocalDateTime lastTrainTime = null;
-        String lastTrainTimeStr     = null;
-        List<TransferDto> transfers = new ArrayList<>();
+        // 경로의 각 구간을 순회하면서 "지하철"과 "버스" 구간의 막차를 조회합니다.
+        // 도보(trafficType=3)는 누적 이동 시간에만 영향을 미칩니다.
+        //
+        // candidateList: 막차 정보를 정상 조회한 구간들의 목록
+        // candidateMap: subPathIndex → Candidate 매핑 (transfers 구성용)
+        List<Candidate> candidateList = new ArrayList<>();
+        Map<Integer, Candidate> candidateMap = new HashMap<>();
+        int priorSectionTime = 0; // 누적 이동 시간(분)
 
+        int subPathIndex = 0;
         for (JsonNode subPath : subPaths) {
             int trafficType = subPath.path("trafficType").asInt();
             int sectionTime = subPath.path("sectionTime").asInt(0);
 
-            // 도보(3): 이동 시간만 누적하고 환승 목록에는 포함하지 않습니다.
+            // 도보(3): 이동 시간만 누적합니다.
             if (trafficType == 3) {
-                if (!foundSubway) {
-                    priorSectionTime += sectionTime;
-                }
+                priorSectionTime += sectionTime;
+                subPathIndex++;
                 continue;
             }
 
+            // 대중교통 구간: 막차 조회
+            String lineName = extractLineName(subPath);
             String startName = subPath.path("startName").asText();
-            String endName   = subPath.path("endName").asText();
-            String lineName  = extractLineName(subPath);
+            String endName = subPath.path("endName").asText();
 
-            // ── 지하철(1) ──────────────────────────────────────────────────────────────
+            LocalDateTime lastTransitTime = null;
+            String type = null;
+
             if (trafficType == 1) {
-                if (!foundSubway) {
-                    // 첫 번째 지하철 구간의 탑승역 ID로 막차 시간표를 조회합니다.
-                    String startId = subPath.path("startID").asText();
-                    String scheduleJson = odsayClient.searchSubwaySchedule(startId, dayType);
-                    lastTrainTime = extractLastTrainTime(scheduleJson, now.toLocalDate(), dayType);
+                // ── 지하철(1) ──────────────────────────────────────────────────────────
+                type = "SUBWAY";
+                String startId = subPath.path("startID").asText();
+                String scheduleJson = odsayClient.searchSubwaySchedule(startId, dayType);
+                lastTransitTime = extractLastTrainTime(scheduleJson, now.toLocalDate(), dayType);
 
-                    if (lastTrainTime == null) {
-                        log.warn("[LastTrainCalculator] 막차 시각 추출 실패, stationId={}", startId);
-                        return null;
-                    }
+            } else if (trafficType == 2) {
+                // ── 버스(2) ────────────────────────────────────────────────────────────
+                type = "BUS";
+                int busCityCode = subPath.path("busCityCode").asInt();
 
-                    lastTrainTimeStr = formatTime(lastTrainTime);
-                    foundSubway = true;
+                if (busCityCode == 1000) {
+                    // 서울시 버스
+                    String stId = subPath.path("localStationID").asText();
+                    String busRouteId = subPath.path("busLocalBlID").asText();
+                    String ord = subPath.path("staOrder").asText();
+                    lastTransitTime = seoulBusArrivalClient.getLastBusTime(stId, busRouteId, ord);
+                } else if (busCityCode == 1050) {
+                    // 경기도 버스
+                    String routeId = subPath.path("busRouteId").asText();
+                    lastTransitTime = gyeonggiBusRouteClient.getLastBusTime(routeId);
                 }
-
-                transfers.add(new TransferDto("SUBWAY", lineName, startName, endName, lastTrainTimeStr));
             }
 
-            // ── 버스(2) ────────────────────────────────────────────────────────────────
-            // 버스 막차 조회(searchBusLane)는 이 메서드 범위 밖입니다.
-            // lastBoardTime은 null로 처리합니다.
-            if (trafficType == 2) {
-                if (!foundSubway) {
-                    // 지하철 탑승 전 버스 구간도 이동 시간 누적
-                    priorSectionTime += sectionTime;
-                }
-                transfers.add(new TransferDto("BUS", lineName, startName, endName, null));
+            // 막차 조회 성공 시 candidateList에 추가
+            if (lastTransitTime != null) {
+                Candidate candidate = new Candidate(
+                        subPathIndex,
+                        priorSectionTime,
+                        lastTransitTime,
+                        lineName,
+                        startName,
+                        endName,
+                        type
+                );
+                candidateList.add(candidate);
+                candidateMap.put(subPathIndex, candidate);
+
+                log.debug("[LastTrainCalculator] 막차 조회 성공: type={}, line={}, time={}, priorTime={}min",
+                        type, lineName, formatTime(lastTransitTime), priorSectionTime);
+            } else {
+                // 막차 조회 실패: 해당 구간은 candidates에서 제외됩니다.
+                log.warn("[LastTrainCalculator] 막차 시각 추출 실패: type={}, line={}", type, lineName);
             }
+
+            // 다음 구간을 위해 현재 구간의 이동 시간 누적
+            priorSectionTime += sectionTime;
+            subPathIndex++;
         }
 
-        // 지하철 구간이 없는 경로(버스만인 경우 등)는 처리하지 않습니다.
-        if (!foundSubway || lastTrainTime == null) {
+        // candidateList가 비어있으면 막차 정보를 얻을 수 없는 경로입니다.
+        if (candidateList.isEmpty()) {
+            log.warn("[LastTrainCalculator] 막차 정보를 얻을 수 없는 경로입니다.");
             return null;
         }
 
-        // ── 2단계: departureDeadline 계산 ─────────────────────────────────────────────
+        // ── 2단계: candidateList에서 병목 찾기 ──────────────────────────────────────
         //
-        // 막차 탑승 마감 시각 = 지하철 막차 시각 - 집에서 지하철 탑승역까지 걸리는 시간
-        LocalDateTime departureDeadline = lastTrainTime.minusMinutes(priorSectionTime);
-        boolean canCatch  = departureDeadline.isAfter(now);
-        int minutesLeft   = (int) Math.max(0, ChronoUnit.MINUTES.between(now, departureDeadline));
+        // 병목: 가장 이른 막차 시각을 가진 구간
+        //
+        // 예시:
+        //   구간1 지하철 23:30 (탑승전 10분)
+        //   구간2 버스 23:15 (탑승전 0분)
+        //   → 버스 23:15가 병목 (가장 먼저 떠나야 함)
+        //
+        Candidate bottleneck = candidateList.stream()
+                .min((a, b) -> a.lastTransitTime.compareTo(b.lastTransitTime))
+                .orElse(null);
+
+        if (bottleneck == null) {
+            return null;
+        }
+
+        log.debug("[LastTrainCalculator] 병목 구간: type={}, time={}, priorTime={}min",
+                bottleneck.type, formatTime(bottleneck.lastTransitTime), bottleneck.priorSectionTime);
+
+        // ── 3단계: departureDeadline 계산 ──────────────────────────────────────────
+        //
+        // 막차 탑승 마감 시각 = 병목의 막차 시각 - 병목 탑승 전까지 걸리는 시간
+        //
+        // 의미: 이 시각까지 출발해야만 병목 구간의 막차를 탈 수 있습니다.
+        //
+        LocalDateTime departureDeadline = bottleneck.lastTransitTime.minusMinutes(bottleneck.priorSectionTime);
+        boolean canCatch = departureDeadline.isAfter(now);
+        int minutesLeft = (int) Math.max(0, ChronoUnit.MINUTES.between(now, departureDeadline));
 
         String message = canCatch
                 ? "막차까지 " + minutesLeft + "분 남았어요!"
@@ -180,6 +242,40 @@ public class LastTrainCalculator {
 
         RouteResponse.CurrentStatus currentStatus =
                 new RouteResponse.CurrentStatus(canCatch, minutesLeft, message);
+
+        // ── 4단계: transfers 구성 ──────────────────────────────────────────────────
+        //
+        // 전체 subPath를 순회하면서 모든 대중교통 구간을 transfers에 추가합니다.
+        // 각 구간의 막차 시각은 위에서 조회한 값을 사용합니다.
+        //
+        List<TransferDto> transfers = new ArrayList<>();
+        subPathIndex = 0;
+
+        for (JsonNode subPath : subPaths) {
+            int trafficType = subPath.path("trafficType").asInt();
+
+            // 도보(3)는 transfers에 포함하지 않습니다.
+            if (trafficType == 3) {
+                subPathIndex++;
+                continue;
+            }
+
+            String lineName = extractLineName(subPath);
+            String startName = subPath.path("startName").asText();
+            String endName = subPath.path("endName").asText();
+            String type = trafficType == 1 ? "SUBWAY" : "BUS";
+
+            // candidateMap에서 해당 구간의 막차 시각 찾기
+            // (막차 조회 실패한 구간은 null이 됨)
+            String lastTransitTimeStr = null;
+            Candidate candidate = candidateMap.get(subPathIndex);
+            if (candidate != null) {
+                lastTransitTimeStr = formatTime(candidate.lastTransitTime);
+            }
+
+            transfers.add(new TransferDto(type, lineName, startName, endName, lastTransitTimeStr));
+            subPathIndex++;
+        }
 
         return new RouteResponse.RouteItem(formatTime(departureDeadline), currentStatus, transfers);
     }
@@ -316,5 +412,40 @@ public class LastTrainCalculator {
             case SUNDAY   -> "3";
             default       -> "1";
         };
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 내부 클래스
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * 대중교통 구간의 막차 정보를 저장하는 클래스입니다.
+     *
+     * 각 구간마다:
+     *   - subPathIndex: 원본 subPath 배열에서의 위치
+     *   - priorSectionTime: 해당 구간 탑승 전까지 걸리는 누적 시간(분)
+     *   - lastTransitTime: 해당 구간의 막차 시각
+     *   - lineName, startName, endName: 노선 정보
+     *   - type: "SUBWAY" 또는 "BUS"
+     */
+    private static class Candidate {
+        final int subPathIndex;
+        final int priorSectionTime;
+        final LocalDateTime lastTransitTime;
+        final String lineName;
+        final String startName;
+        final String endName;
+        final String type;
+
+        Candidate(int subPathIndex, int priorSectionTime, LocalDateTime lastTransitTime,
+                  String lineName, String startName, String endName, String type) {
+            this.subPathIndex = subPathIndex;
+            this.priorSectionTime = priorSectionTime;
+            this.lastTransitTime = lastTransitTime;
+            this.lineName = lineName;
+            this.startName = startName;
+            this.endName = endName;
+            this.type = type;
+        }
     }
 }
