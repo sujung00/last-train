@@ -1,0 +1,43 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# 로컬 개발 환경 설정 오버라이드
+#
+# ⚠️  이 파일은 .gitignore에 포함됩니다 — 실제 값을 절대 입력하지 마세요.
+# ⚠️  실제 API Key / 비밀번호는 아래 방법으로 설정하세요:
+#       - IntelliJ: Edit Configurations → Environment Variables
+#       - 터미널: export DB_USERNAME=root 또는 .env 파일 사용
+#       - 자세한 방법: /docs/env-guide.md 참고
+# ─────────────────────────────────────────────────────────────────────────────
+
+spring:
+  datasource:
+    # IntelliJ에서 직접 실행할 때는 docker-compose가 호스트에 매핑한 3307 포트로 접속한다.
+    # docker-compose의 app 컨테이너에서 실행할 때는 DB_PORT=3306(컨테이너 내부 포트)이 주입된다.
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3307}/${DB_NAME:last_train_db}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 1
+
+  data:
+    redis:
+      # IntelliJ 직접 실행: 호스트 매핑 포트 6380 / docker-compose app 컨테이너: 내부 포트 6379
+      port: ${REDIS_PORT:6380}
+
+  jpa:
+    hibernate:
+      # Flyway가 스키마를 관리하므로 Hibernate는 검증만 수행
+      ddl-auto: validate
+    show-sql: true              # SQL 로그 출력 (로컬 디버깅용)
+    properties:
+      hibernate:
+        format_sql: true        # SQL을 보기 좋게 포맷팅
+
+  web:
+    cors:
+      allowed-origins: http://localhost:3000
+
+logging:
+  level:
+    com.lasttrain: DEBUG

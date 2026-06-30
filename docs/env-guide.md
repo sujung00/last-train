@@ -76,7 +76,7 @@ nano .env
 source .env
 
 # 4. 앱 실행
-./gradlew bootRun
+./backend/gradlew bootRun
 ```
 
 > ⚠️ `.env` 파일은 `.gitignore`에 포함되어 있으므로 Git에 올라가지 않습니다.
@@ -92,7 +92,7 @@ export DB_PASSWORD=your_password
 export JWT_SECRET=local-dev-secret-at-least-32-characters
 export ODSAY_API_KEY=your_odsay_key
 
-./gradlew bootRun
+./backend/gradlew bootRun
 ```
 
 > 터미널을 닫으면 export 값이 사라집니다. 영구 설정은 `~/.zshrc`에 추가하세요.

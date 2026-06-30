@@ -59,7 +59,7 @@ services:
   # ── Spring Boot 앱 ────────────────────────────────────────────────────────────
   app:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: last-train-app
     ports:

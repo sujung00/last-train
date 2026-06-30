@@ -67,11 +67,23 @@ dependencyManagement {
 
 test {
     useJUnitPlatform()
+
+    // 테스트 실행 시 루트 .env 파일 읽어서 환경변수로 주입
+    def envFile = file('../.env')
+    if (envFile.exists()) {
+        envFile.readLines().each { line ->
+            if (line && !line.startsWith('#')) {
+                def (key, value) = line.split('=', 2)
+                environment key.trim(), value.trim()
+            }
+        }
+    }
 }
 
 bootRun {
-    // .env 파일 읽어서 환경변수로 주입
-    def envFile = file('.env')
+    // 루트 .env 파일 읽어서 환경변수로 주입
+    // backend/에서 실행해도 루트의 .env를 읽을 수 있도록 상대경로 조정
+    def envFile = file('../.env')
     if (envFile.exists()) {
         envFile.readLines().each { line ->
             if (line && !line.startsWith('#')) {
