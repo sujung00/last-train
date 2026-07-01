@@ -24,14 +24,15 @@ import java.util.regex.Pattern;
  *
  * 역할:
  *   - 대중교통별 막차 시각 조회
- *   - DB 캐시 먼저 확인 (캐시 히트 시 즉시 반환)
- *   - 캐시 미스 시 외부 API 호출 후 DB에 저장
- *   - 다음 조회 때 DB에서 빠르게 반환
+ *   - 실시간 데이터를 위해 항상 API 먼저 호출
+ *   - API 호출 성공 시 DB에 저장 (최신 데이터 유지)
+ *   - API 호출 실패 시 DB에서 마지막 저장값 반환 (Fallback)
+ *   - DB도 없으면 null 반환
  *
- * 캐시 전략:
- *   - 첫 조회: API 호출 + DB 저장 (~1초 소요)
- *   - 이후 조회: DB에서 직접 조회 (~10ms 소요)
- *   - 성능 개선: API 호출 99% 감소
+ * 데이터 흐름:
+ *   정상: API 호출 성공 → DB 저장 → 최신 데이터 반환
+ *   Fallback: API 호출 실패 → DB에서 마지막값 조회 → 반환
+ *   없음: API 실패 + DB 없음 → null 반환
  *
  * 지원 대중교통:
  *   - SUBWAY: 전철 (ODsay API 사용)
@@ -64,76 +65,100 @@ public class TransitCacheService {
     private final TransitCacheWriter transitCacheWriter;
 
     /**
-     * 전철 막차 시각 조회 (캐시 적용)
+     * 전철 막차 시각 조회 (실시간 API 우선 + DB Fallback)
      *
      * 캐시 키 구조:
      *   - transitType: "SUBWAY"
      *   - cacheKey: odsayStationId (예: "136", "729")
      *   - dayType: "WEEKDAY", "SATURDAY", "SUNDAY"
      *
-     * 조회 흐름:
-     *   1. DB에서 캐시 확인
-     *   2. 캐시 히트: 즉시 반환 (10ms)
-     *   3. 캐시 미스: ODsay API 호출 (500~1000ms)
-     *   4. API 응답 처리 후 DB 저장
-     *   5. 저장된 막차 시각 반환
+     * 조회 흐름 (실시간 데이터 우선):
+     *   1. ODsay API 호출 (실시간 데이터 획득)
+     *   2. API 성공 → JSON 파싱 → 막차 시각 추출 → DB 저장 → 반환
+     *   3. API 실패 → DB에서 마지막 저장값 조회 → 반환 (log.warn 발생)
+     *   4. DB도 없음 → null 반환
      *
-     * 예시:
+     * 예시 (정상):
      *   getSubwayLastTime("136", "1")
-     *   → dayType 변환: "1" → "WEEKDAY"
-     *   → DB 조회: transitType="SUBWAY", cacheKey="136", dayType="WEEKDAY"
-     *   → 캐시 미스 시: ODsay API 호출 → "23:45" 추출 → DB 저장
-     *   → 반환: "23:45"
+     *   → ODsay API 호출 → "23:45" 추출 → DB 저장 → 반환: "23:45"
+     *
+     * 예시 (Fallback):
+     *   getSubwayLastTime("136", "1")
+     *   → ODsay API 실패
+     *   → DB에서 마지막값 조회 → "23:42" (3분 전 데이터)
+     *   → log.warn("ODsay API 실패, DB Fallback 사용: stationId=136")
+     *   → 반환: "23:42"
      *
      * @param odsayStationId ODsay 역 ID (예: "136" = 서울역)
      * @param dayType 요일 타입 ("1", "2", "3")
-     * @return 막차 시간 (HH:mm 형식, 예: "23:45") 또는 null (실패 시)
+     * @return 막차 시간 (HH:mm 형식, 예: "23:45") 또는 null (API 실패 + DB 없음)
      */
     public String getSubwayLastTime(String odsayStationId, String dayType) {
         try {
             // dayType 변환: 숫자 → 영문 (1→WEEKDAY, 2→SATURDAY, 3→SUNDAY)
             String convertedDayType = convertDayType(dayType);
 
-            // 캐시 조회
-            Optional<LastTransitSchedule> cached = lastTransitScheduleRepository
+            // 1단계: 외부 API 호출 (실시간 데이터 획득)
+            log.debug("전철 실시간 데이터 요청: stationId={}, dayType={}. ODsay API 호출...", odsayStationId, convertedDayType);
+            String scheduleJson = odsayClient.searchSubwaySchedule(odsayStationId, dayType);
+
+            // 2단계: API 성공 시 DB에 저장하고 반환
+            if (scheduleJson != null) {
+                // API 응답 JSON 파싱 → 막차 시각 추출
+                String lastTime = extractSubwayLastTime(scheduleJson, LocalDate.now(), dayType);
+
+                if (lastTime != null) {
+                    // API 호출 성공 → DB에 저장 (최신 데이터 업데이트)
+                    transitCacheWriter.saveOrUpdate("SUBWAY", odsayStationId, convertedDayType, lastTime);
+                    log.debug("전철 API 호출 성공, DB 저장 완료: stationId={}, lastTime={}", odsayStationId, lastTime);
+                    return lastTime;
+                }
+            }
+
+            // 3단계: API 실패 시 DB에서 마지막 저장값 조회 (Fallback)
+            log.warn("ODsay API 실패, DB Fallback 사용: stationId={}", odsayStationId);
+            Optional<LastTransitSchedule> fallback = lastTransitScheduleRepository
                 .findByTransitTypeAndCacheKeyAndDayType(
                     "SUBWAY",
                     odsayStationId,
                     convertedDayType
                 );
 
-            // 캐시 히트: 즉시 반환
-            if (cached.isPresent()) {
-                log.debug("전철 캐시 히트: stationId={}, dayType={}", odsayStationId, convertedDayType);
-                return cached.get().getLastTime();
+            // 4단계: DB에서 값을 찾으면 반환, 없으면 null
+            if (fallback.isPresent()) {
+                log.debug("DB Fallback 데이터 반환: stationId={}, lastTime={}", odsayStationId, fallback.get().getLastTime());
+                return fallback.get().getLastTime();
             }
 
-            // 캐시 미스: 외부 API 호출
-            log.debug("전철 캐시 미스: stationId={}. ODsay API 호출...", odsayStationId);
-            String scheduleJson = odsayClient.searchSubwaySchedule(odsayStationId, dayType);
-
-            if (scheduleJson != null) {
-                // API 응답 JSON 파싱 → 막차 시각 추출
-                String lastTime = extractSubwayLastTime(scheduleJson, LocalDate.now(), dayType);
-
-                if (lastTime != null) {
-                    // API 호출 성공 → DB에 저장 (TransitCacheWriter 사용)
-                    transitCacheWriter.saveOrUpdate("SUBWAY", odsayStationId, convertedDayType, lastTime);
-                    return lastTime;
-                }
-            }
-
-            log.warn("ODsay API에서 막차 시각을 찾을 수 없음: stationId={}", odsayStationId);
+            log.warn("ODsay API 실패 + DB 데이터 없음: stationId={}", odsayStationId);
             return null;
 
         } catch (Exception e) {
             log.error("전철 막차 조회 실패: odsayStationId={}, dayType={}", odsayStationId, dayType, e);
+
+            // 예외 발생 시에도 DB Fallback 시도
+            try {
+                String convertedDayType = convertDayType(dayType);
+                Optional<LastTransitSchedule> fallback = lastTransitScheduleRepository
+                    .findByTransitTypeAndCacheKeyAndDayType(
+                        "SUBWAY",
+                        odsayStationId,
+                        convertedDayType
+                    );
+                if (fallback.isPresent()) {
+                    log.debug("예외 발생 시 DB Fallback 반환: stationId={}", odsayStationId);
+                    return fallback.get().getLastTime();
+                }
+            } catch (Exception fallbackException) {
+                log.error("DB Fallback 조회도 실패: stationId={}", odsayStationId, fallbackException);
+            }
+
             return null;
         }
     }
 
     /**
-     * 서울 시내버스 막차 시각 조회 (캐시 적용)
+     * 서울 시내버스 막차 시각 조회 (실시간 API 우선 + DB Fallback)
      *
      * 캐시 키 구조:
      *   - transitType: "BUS_SEOUL"
@@ -146,26 +171,29 @@ public class TransitCacheService {
      *     ├─ 100100578: 노선 ID (busRouteId)
      *     └─ 29: 순번 (ord) - 왕복 노선의 경우 1 또는 2
      *
-     * 조회 흐름:
+     * 조회 흐름 (실시간 데이터 우선):
      *   1. cacheKey 생성 (stId:busRouteId:ord)
-     *   2. DB에서 캐시 확인
-     *   3. 캐시 미스 시: 서울 버스 API 호출
-     *   4. LocalDateTime → "HH:mm" 변환
-     *   5. DB 저장 후 반환
+     *   2. 서울 버스 API 호출 (실시간 데이터 획득)
+     *   3. API 성공 → LocalDateTime → "HH:mm" 변환 → DB 저장 → 반환
+     *   4. API 실패 → DB에서 마지막 저장값 조회 → 반환 (log.warn 발생)
+     *   5. DB도 없음 → null 반환
      *
-     * 예시:
+     * 예시 (정상):
      *   getSeoulBusLastTime("124000414", "100100578", "29", "1")
-     *   → cacheKey: "124000414:100100578:29"
-     *   → dayType: "WEEKDAY"
-     *   → API 호출 → LocalDateTime.parse("2026-07-01 23:45:00")
-     *   → "HH:mm" 변환 → "23:45"
-     *   → DB 저장 후 반환
+     *   → 서울 버스 API 호출 → "23:45" 반환 → DB 저장 → 반환: "23:45"
+     *
+     * 예시 (Fallback):
+     *   getSeoulBusLastTime("124000414", "100100578", "29", "1")
+     *   → 서울 버스 API 실패
+     *   → DB에서 마지막값 조회 → "23:42"
+     *   → log.warn("서울 버스 API 실패, DB Fallback 사용: stId=124000414...")
+     *   → 반환: "23:42"
      *
      * @param stId 정류소 ID (Seoul Bus API)
      * @param busRouteId 노선 ID (Seoul Bus API)
      * @param ord 순번 ("1" 또는 "2", 왕복 노선 구분)
      * @param dayType 요일 타입 ("1", "2", "3")
-     * @return 막차 시간 (HH:mm 형식) 또는 null (실패 시)
+     * @return 막차 시간 (HH:mm 형식) 또는 null (API 실패 + DB 없음)
      */
     public String getSeoulBusLastTime(String stId, String busRouteId, String ord, String dayType) {
         try {
@@ -175,47 +203,69 @@ public class TransitCacheService {
             // 캐시 키 생성: "정류소ID:노선ID:순번"
             String cacheKey = stId + ":" + busRouteId + ":" + ord;
 
-            // 캐시 조회
-            Optional<LastTransitSchedule> cached = lastTransitScheduleRepository
+            // 1단계: 외부 API 호출 (실시간 데이터 획득)
+            log.debug("서울 버스 실시간 데이터 요청: cacheKey={}, dayType={}. 서울 버스 API 호출...", cacheKey, convertedDayType);
+            LocalDateTime lastBusTime = seoulBusArrivalClient.getLastBusTime(stId, busRouteId, ord);
+
+            // 2단계: API 성공 시 DB에 저장하고 반환
+            if (lastBusTime != null) {
+                // LocalDateTime → "HH:mm" 형식 변환
+                // 예: 2026-07-01T23:45:00 → "23:45"
+                String lastTime = lastBusTime.format(DateTimeFormatter.ofPattern("HH:mm"));
+
+                // DB에 저장 (최신 데이터 업데이트)
+                transitCacheWriter.saveOrUpdate("BUS_SEOUL", cacheKey, convertedDayType, lastTime);
+                log.debug("서울 버스 API 호출 성공, DB 저장 완료: cacheKey={}, lastTime={}", cacheKey, lastTime);
+                return lastTime;
+            }
+
+            // 3단계: API 실패 시 DB에서 마지막 저장값 조회 (Fallback)
+            log.warn("서울 버스 API 실패, DB Fallback 사용: stId={}", stId);
+            Optional<LastTransitSchedule> fallback = lastTransitScheduleRepository
                 .findByTransitTypeAndCacheKeyAndDayType(
                     "BUS_SEOUL",
                     cacheKey,
                     convertedDayType
                 );
 
-            // 캐시 히트
-            if (cached.isPresent()) {
-                log.debug("서울버스 캐시 히트: cacheKey={}, dayType={}", cacheKey, convertedDayType);
-                return cached.get().getLastTime();
+            // 4단계: DB에서 값을 찾으면 반환, 없으면 null
+            if (fallback.isPresent()) {
+                log.debug("DB Fallback 데이터 반환: cacheKey={}, lastTime={}", cacheKey, fallback.get().getLastTime());
+                return fallback.get().getLastTime();
             }
 
-            // 캐시 미스: 서울 버스 API 호출
-            log.debug("서울버스 캐시 미스: cacheKey={}. 서울 버스 API 호출...", cacheKey);
-            LocalDateTime lastBusTime = seoulBusArrivalClient.getLastBusTime(stId, busRouteId, ord);
-
-            if (lastBusTime != null) {
-                // LocalDateTime → "HH:mm" 형식 변환
-                // 예: 2026-07-01T23:45:00 → "23:45"
-                String lastTime = lastBusTime.format(DateTimeFormatter.ofPattern("HH:mm"));
-
-                // DB에 저장 (TransitCacheWriter 사용)
-                transitCacheWriter.saveOrUpdate("BUS_SEOUL", cacheKey, convertedDayType, lastTime);
-                return lastTime;
-            }
-
-            log.warn("서울 버스 API에서 막차 시각을 찾을 수 없음: stId={}, busRouteId={}, ord={}",
+            log.warn("서울 버스 API 실패 + DB 데이터 없음: stId={}, busRouteId={}, ord={}",
                      stId, busRouteId, ord);
             return null;
 
         } catch (Exception e) {
             log.error("서울버스 막차 조회 실패: stId={}, busRouteId={}, ord={}, dayType={}",
                      stId, busRouteId, ord, dayType, e);
+
+            // 예외 발생 시에도 DB Fallback 시도
+            try {
+                String convertedDayType = convertDayType(dayType);
+                String cacheKey = stId + ":" + busRouteId + ":" + ord;
+                Optional<LastTransitSchedule> fallback = lastTransitScheduleRepository
+                    .findByTransitTypeAndCacheKeyAndDayType(
+                        "BUS_SEOUL",
+                        cacheKey,
+                        convertedDayType
+                    );
+                if (fallback.isPresent()) {
+                    log.debug("예외 발생 시 DB Fallback 반환: stId={}", stId);
+                    return fallback.get().getLastTime();
+                }
+            } catch (Exception fallbackException) {
+                log.error("DB Fallback 조회도 실패: stId={}, busRouteId={}, ord={}", stId, busRouteId, ord, fallbackException);
+            }
+
             return null;
         }
     }
 
     /**
-     * 경기도 버스 막차 시각 조회 (캐시 적용)
+     * 경기도 버스 막차 시각 조회 (실시간 API 우선 + DB Fallback)
      *
      * 캐시 키 구조:
      *   - transitType: "BUS_GYEONGGI"
@@ -225,60 +275,85 @@ public class TransitCacheService {
      * 캐시 키 형식 예시:
      *   "200000037" (경기버스 노선 ID)
      *
-     * 조회 흐름:
-     *   1. DB에서 캐시 확인
-     *   2. 캐시 미스 시: 경기버스 API 호출
-     *   3. LocalDateTime → "HH:mm" 변환
-     *   4. DB 저장 후 반환
+     * 조회 흐름 (실시간 데이터 우선):
+     *   1. 경기버스 API 호출 (실시간 데이터 획득)
+     *   2. API 성공 → LocalDateTime → "HH:mm" 변환 → DB 저장 → 반환
+     *   3. API 실패 → DB에서 마지막 저장값 조회 → 반환 (log.warn 발생)
+     *   4. DB도 없음 → null 반환
      *
-     * 예시:
+     * 예시 (정상):
      *   getGyeonggiBusLastTime("200000037", "1")
-     *   → cacheKey: "200000037"
-     *   → dayType: "WEEKDAY"
-     *   → API 호출 → "23:50" 추출
-     *   → DB 저장 후 반환
+     *   → 경기버스 API 호출 → "23:50" 반환 → DB 저장 → 반환: "23:50"
+     *
+     * 예시 (Fallback):
+     *   getGyeonggiBusLastTime("200000037", "1")
+     *   → 경기버스 API 실패
+     *   → DB에서 마지막값 조회 → "23:48"
+     *   → log.warn("경기버스 API 실패, DB Fallback 사용: routeId=200000037")
+     *   → 반환: "23:48"
      *
      * @param routeId 경기버스 노선 ID (예: "200000037")
      * @param dayType 요일 타입 ("1", "2", "3")
-     * @return 막차 시간 (HH:mm 형식) 또는 null (실패 시)
+     * @return 막차 시간 (HH:mm 형식) 또는 null (API 실패 + DB 없음)
      */
     public String getGyeonggiBusLastTime(String routeId, String dayType) {
         try {
             // dayType 변환
             String convertedDayType = convertDayType(dayType);
 
-            // 캐시 조회
-            Optional<LastTransitSchedule> cached = lastTransitScheduleRepository
+            // 1단계: 외부 API 호출 (실시간 데이터 획득)
+            log.debug("경기 버스 실시간 데이터 요청: routeId={}, dayType={}. 경기버스 API 호출...", routeId, convertedDayType);
+            LocalDateTime lastBusTime = gyeonggiBusRouteClient.getLastBusTime(routeId);
+
+            // 2단계: API 성공 시 DB에 저장하고 반환
+            if (lastBusTime != null) {
+                // LocalDateTime → "HH:mm" 형식 변환
+                String lastTime = lastBusTime.format(DateTimeFormatter.ofPattern("HH:mm"));
+
+                // DB에 저장 (최신 데이터 업데이트)
+                transitCacheWriter.saveOrUpdate("BUS_GYEONGGI", routeId, convertedDayType, lastTime);
+                log.debug("경기버스 API 호출 성공, DB 저장 완료: routeId={}, lastTime={}", routeId, lastTime);
+                return lastTime;
+            }
+
+            // 3단계: API 실패 시 DB에서 마지막 저장값 조회 (Fallback)
+            log.warn("경기버스 API 실패, DB Fallback 사용: routeId={}", routeId);
+            Optional<LastTransitSchedule> fallback = lastTransitScheduleRepository
                 .findByTransitTypeAndCacheKeyAndDayType(
                     "BUS_GYEONGGI",
                     routeId,
                     convertedDayType
                 );
 
-            // 캐시 히트
-            if (cached.isPresent()) {
-                log.debug("경기버스 캐시 히트: routeId={}, dayType={}", routeId, convertedDayType);
-                return cached.get().getLastTime();
+            // 4단계: DB에서 값을 찾으면 반환, 없으면 null
+            if (fallback.isPresent()) {
+                log.debug("DB Fallback 데이터 반환: routeId={}, lastTime={}", routeId, fallback.get().getLastTime());
+                return fallback.get().getLastTime();
             }
 
-            // 캐시 미스: 경기버스 API 호출
-            log.debug("경기버스 캐시 미스: routeId={}. 경기버스 API 호출...", routeId);
-            LocalDateTime lastBusTime = gyeonggiBusRouteClient.getLastBusTime(routeId);
-
-            if (lastBusTime != null) {
-                // LocalDateTime → "HH:mm" 형식 변환
-                String lastTime = lastBusTime.format(DateTimeFormatter.ofPattern("HH:mm"));
-
-                // DB에 저장 (TransitCacheWriter 사용)
-                transitCacheWriter.saveOrUpdate("BUS_GYEONGGI", routeId, convertedDayType, lastTime);
-                return lastTime;
-            }
-
-            log.warn("경기버스 API에서 막차 시각을 찾을 수 없음: routeId={}", routeId);
+            log.warn("경기버스 API 실패 + DB 데이터 없음: routeId={}", routeId);
             return null;
 
         } catch (Exception e) {
             log.error("경기버스 막차 조회 실패: routeId={}, dayType={}", routeId, dayType, e);
+
+            // 예외 발생 시에도 DB Fallback 시도
+            try {
+                String convertedDayType = convertDayType(dayType);
+                Optional<LastTransitSchedule> fallback = lastTransitScheduleRepository
+                    .findByTransitTypeAndCacheKeyAndDayType(
+                        "BUS_GYEONGGI",
+                        routeId,
+                        convertedDayType
+                    );
+                if (fallback.isPresent()) {
+                    log.debug("예외 발생 시 DB Fallback 반환: routeId={}", routeId);
+                    return fallback.get().getLastTime();
+                }
+            } catch (Exception fallbackException) {
+                log.error("DB Fallback 조회도 실패: routeId={}", routeId, fallbackException);
+            }
+
             return null;
         }
     }
