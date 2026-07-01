@@ -2,11 +2,9 @@ package com.lasttrain.route.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.lasttrain.bus.external.GyeonggiBusRouteClient;
-import com.lasttrain.bus.external.SeoulBusArrivalClient;
 import com.lasttrain.route.dto.RouteResponse;
 import com.lasttrain.route.dto.TransferDto;
-import com.lasttrain.route.external.OdsayClient;
+import com.lasttrain.transit.service.TransitCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -19,8 +17,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * ODsay 경로 JSON을 파싱해서 각 경로의 막차 탑승 마감 시각(departureDeadline)을 계산합니다.
@@ -44,9 +40,9 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class LastTrainCalculator {
 
-    private final OdsayClient odsayClient;
-    private final SeoulBusArrivalClient seoulBusArrivalClient;
-    private final GyeonggiBusRouteClient gyeonggiBusRouteClient;
+    // 막차 시각을 조회하고 캐싱하는 서비스
+    // 외부 API 호출 → DB 저장 → 다음 조회 시 캐시 사용
+    private final TransitCacheService transitCacheService;
 
     // Spring Boot가 자동 구성하는 ObjectMapper를 주입받습니다.
     // JSON 문자열을 JsonNode 트리로 파싱할 때 사용합니다.
@@ -153,24 +149,30 @@ public class LastTrainCalculator {
                 // ── 지하철(1) ──────────────────────────────────────────────────────────
                 type = "SUBWAY";
                 String startId = subPath.path("startID").asText();
-                String scheduleJson = odsayClient.searchSubwaySchedule(startId, dayType);
-                lastTransitTime = extractLastTrainTime(scheduleJson, now.toLocalDate(), dayType);
+                // TransitCacheService를 통해 막차 조회 (캐시 적용)
+                // API 호출 + DB 저장 또는 DB에서 직접 조회
+                String lastTimeStr = transitCacheService.getSubwayLastTime(startId, dayType);
+                lastTransitTime = parseLastTime(lastTimeStr, now.toLocalDate());
 
             } else if (trafficType == 2) {
                 // ── 버스(2) ────────────────────────────────────────────────────────────
                 type = "BUS";
                 int busCityCode = subPath.path("busCityCode").asInt();
+                log.debug("[LastTrainCalculator] 버스 구간: line={}, busCityCode={}, busRouteId={}",
+                    lineName, busCityCode, subPath.path("busRouteId").asText());
 
                 if (busCityCode == 1000) {
-                    // 서울시 버스
+                    // 서울시 버스 - TransitCacheService를 통해 조회 (캐시 적용)
                     String stId = subPath.path("localStationID").asText();
                     String busRouteId = subPath.path("busLocalBlID").asText();
                     String ord = subPath.path("staOrder").asText();
-                    lastTransitTime = seoulBusArrivalClient.getLastBusTime(stId, busRouteId, ord);
+                    String lastTimeStr = transitCacheService.getSeoulBusLastTime(stId, busRouteId, ord, dayType);
+                    lastTransitTime = parseLastTime(lastTimeStr, now.toLocalDate());
                 } else if (busCityCode == 1050) {
-                    // 경기도 버스
+                    // 경기도 버스 - TransitCacheService를 통해 조회 (캐시 적용)
                     String routeId = subPath.path("busRouteId").asText();
-                    lastTransitTime = gyeonggiBusRouteClient.getLastBusTime(routeId);
+                    String lastTimeStr = transitCacheService.getGyeonggiBusLastTime(routeId, dayType);
+                    lastTransitTime = parseLastTime(lastTimeStr, now.toLocalDate());
                 }
             }
 
@@ -281,101 +283,55 @@ public class LastTrainCalculator {
     }
 
     /**
-     * ODsay subwayTimeTable 응답에서 막차 시각을 추출합니다.
+     * "HH:mm" 형식의 막차 시각 문자열을 LocalDateTime으로 변환합니다.
      *
-     * ── ODsay 응답 구조 ────────────────────────────────────────────────────────
-     * 요일 유형에 따라 아래 3개 목록 중 하나를 사용합니다.
-     *   평일   → result.OrdList.down.time[]
-     *   토요일 → result.SatList.down.time[]
-     *   일요일 → result.SunList.down.time[]
+     * 용도:
+     *   - TransitCacheService에서 받은 "HH:mm" 문자열을 LocalDateTime으로 변환
+     *   - 자정 넘김 처리: 00:xx ~ 04:59는 다음날로 판단
      *
-     * time[] 배열의 각 항목 구조 (시간대별 묶음):
-     *   {"Idx": 23, "list": "10(온수) 18(석남) 28(온수) 38(석남) 47(온수) 57(석남)"}
-     *     - Idx  : 시(hour) 값
-     *     - list : 그 시간대에 출발하는 열차들의 "분(목적지)" 목록을 공백으로 나열한 문자열
+     * 예시:
+     *   parseLastTime("23:45", 2026-07-01) → 2026-07-01 23:45
+     *   parseLastTime("00:30", 2026-07-01) → 2026-07-02 00:30 (자정 넘김)
+     *   parseLastTime("03:15", 2026-07-01) → 2026-07-02 03:15 (자정 넘김)
+     *   parseLastTime(null, 2026-07-01) → null
      *
-     * 막차 시각 = time[] 배열의 마지막 항목 (가장 늦은 시간대)의
-     *            Idx(시) + list의 마지막 "분" 값
-     * ────────────────────────────────────────────────────────────────────────────
-     *
-     * @param scheduleJson ODsay subwayTimeTable 응답 JSON
-     * @param baseDate     계산 기준 날짜 (자정 넘김 처리용)
-     * @param dayType      요일 구분 ("1"=평일, "2"=토요일, "3"=일요일)
-     * @return 막차 LocalDateTime, 파싱 실패 시 null
+     * @param lastTimeStr "HH:mm" 형식의 막차 시각 (예: "23:45"), null 가능
+     * @param baseDate    계산 기준 날짜
+     * @return 변환된 LocalDateTime, 입력이 null이면 null
      */
-    private LocalDateTime extractLastTrainTime(String scheduleJson, LocalDate baseDate, String dayType)
-            throws Exception {
-
-        // dayType에 맞는 목록(OrdList/SatList/SunList)의 이름을 결정합니다.
-        String listName = switch (dayType) {
-            case "2" -> "SatList";
-            case "3" -> "SunList";
-            default  -> "OrdList";
-        };
-
-        JsonNode timeList = objectMapper.readTree(scheduleJson)
-                                        .path("result")
-                                        .path(listName)
-                                        .path("down")
-                                        .path("time");
-
-        if (!timeList.isArray() || timeList.isEmpty()) {
+    private LocalDateTime parseLastTime(String lastTimeStr, LocalDate baseDate) {
+        // null 또는 빈 문자열이면 null 반환
+        if (lastTimeStr == null || lastTimeStr.isBlank()) {
             return null;
         }
 
-        // 배열의 마지막 항목이 가장 늦은 시간대 = 막차가 포함된 시간대입니다.
-        JsonNode lastTimeGroup = timeList.get(timeList.size() - 1);
+        try {
+            // "HH:mm" 문자열에서 시(hour)와 분(minute) 추출
+            // 예) "23:45" → hour=23, minute=45
+            String[] parts = lastTimeStr.split(":");
+            if (parts.length != 2) {
+                log.warn("시간 형식이 올바르지 않음: {}", lastTimeStr);
+                return null;
+            }
 
-        int hour = lastTimeGroup.path("Idx").asInt();
-        String list = lastTimeGroup.path("list").asText();
+            int hour = Integer.parseInt(parts[0].trim());
+            int minute = Integer.parseInt(parts[1].trim());
 
-        // list 문자열에서 마지막 "분" 값을 추출합니다.
-        Integer minute = extractLastMinute(list);
-        if (minute == null) {
+            // 자정 넘김 처리 (00:00 ~ 04:59 범위)
+            // 이 범위는 전날 자정 이후의 시간으로 판단
+            // 예: 00:30 = 자정 이후 30분 → 다음날
+            //     04:59 = 자정 이후 4시간 59분 → 다음날
+            //     05:00 = 새벽 5시 → 같은 날 (막차가 새벽 5시 이후는 일반적이지 않음)
+            if (hour < 5) {
+                return baseDate.plusDays(1).atTime(hour, minute);
+            }
+
+            return baseDate.atTime(hour, minute);
+
+        } catch (NumberFormatException e) {
+            log.warn("막차 시각 파싱 실패: {}", lastTimeStr, e);
             return null;
         }
-
-        return buildLastTrainDateTime(hour, minute, baseDate);
-    }
-
-    /**
-     * "분(역명) 분(역명) ..." 형식의 문자열에서 마지막 "분" 값을 추출합니다.
-     *
-     * 예) "10(온수) 18(석남) 28(온수) 38(석남) 47(온수) 57(석남)" → 57
-     *
-     * 정규식 "(\\d+)\\(" 으로 "숫자(" 패턴을 모두 찾고, 가장 마지막으로 찾은 숫자를 반환합니다.
-     *
-     * @return 마지막 "분" 값, list가 비어있거나 패턴이 없으면 null
-     */
-    private Integer extractLastMinute(String list) {
-        if (list == null || list.isBlank()) {
-            return null;
-        }
-
-        Matcher matcher = Pattern.compile("(\\d+)\\(").matcher(list);
-
-        Integer lastMinute = null;
-        while (matcher.find()) {
-            lastMinute = Integer.parseInt(matcher.group(1));
-        }
-
-        return lastMinute;
-    }
-
-    /**
-     * 막차의 시(hour)와 분(minute)을 LocalDateTime으로 변환합니다.
-     *
-     * 자정 넘김 처리:
-     *   ODsay는 자정 이후 열차의 시(Idx)를 24 이상으로 표기합니다.
-     *   예) Idx=24, minute=10 → 다음날 00:10
-     *       Idx=25, minute=3  → 다음날 01:03
-     */
-    private LocalDateTime buildLastTrainDateTime(int hour, int minute, LocalDate baseDate) {
-        if (hour >= 24) {
-            // 자정 넘긴 막차: 기준 날짜의 다음날로 계산합니다.
-            return baseDate.plusDays(1).atTime(hour - 24, minute);
-        }
-        return baseDate.atTime(hour, minute);
     }
 
     /**
