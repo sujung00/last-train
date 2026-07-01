@@ -309,7 +309,7 @@ public class TransitCacheService {
      * @param dayType      요일 구분 ("1"=평일, "2"=토요일, "3"=일요일)
      * @return 막차 시간 (HH:mm 형식, 예: "23:45") 또는 null (파싱 실패 시)
      */
-    private String extractSubwayLastTime(String scheduleJson, LocalDate baseDate, String dayType) {
+    public String extractSubwayLastTime(String scheduleJson, LocalDate baseDate, String dayType) {
         try {
             // dayType에 맞는 목록(OrdList/SatList/SunList)의 이름을 결정합니다.
             // 평일(1) → OrdList, 토요일(2) → SatList, 일요일(3) → SunList
