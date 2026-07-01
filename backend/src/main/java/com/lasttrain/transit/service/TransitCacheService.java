@@ -102,15 +102,14 @@ public class TransitCacheService {
             log.debug("전철 실시간 데이터 요청: stationId={}, dayType={}. ODsay API 호출...", odsayStationId, convertedDayType);
             String scheduleJson = odsayClient.searchSubwaySchedule(odsayStationId, dayType);
 
-            // 2단계: API 성공 시 DB에 저장하고 반환
+            // 2단계: API 성공 시 값만 반환 (DB 저장 X)
             if (scheduleJson != null) {
                 // API 응답 JSON 파싱 → 막차 시각 추출
                 String lastTime = extractSubwayLastTime(scheduleJson, LocalDate.now(), dayType);
 
                 if (lastTime != null) {
-                    // API 호출 성공 → DB에 저장 (최신 데이터 업데이트)
-                    transitCacheWriter.saveOrUpdate("SUBWAY", odsayStationId, convertedDayType, lastTime);
-                    log.debug("전철 API 호출 성공, DB 저장 완료: stationId={}, lastTime={}", odsayStationId, lastTime);
+                    // API 호출 성공 → 값만 반환 (DB 저장하지 않음)
+                    log.debug("전철 API 호출 성공: stationId={}, lastTime={}", odsayStationId, lastTime);
                     return lastTime;
                 }
             }
@@ -207,15 +206,14 @@ public class TransitCacheService {
             log.debug("서울 버스 실시간 데이터 요청: cacheKey={}, dayType={}. 서울 버스 API 호출...", cacheKey, convertedDayType);
             LocalDateTime lastBusTime = seoulBusArrivalClient.getLastBusTime(stId, busRouteId, ord);
 
-            // 2단계: API 성공 시 DB에 저장하고 반환
+            // 2단계: API 성공 시 값만 반환 (DB 저장 X)
             if (lastBusTime != null) {
                 // LocalDateTime → "HH:mm" 형식 변환
                 // 예: 2026-07-01T23:45:00 → "23:45"
                 String lastTime = lastBusTime.format(DateTimeFormatter.ofPattern("HH:mm"));
 
-                // DB에 저장 (최신 데이터 업데이트)
-                transitCacheWriter.saveOrUpdate("BUS_SEOUL", cacheKey, convertedDayType, lastTime);
-                log.debug("서울 버스 API 호출 성공, DB 저장 완료: cacheKey={}, lastTime={}", cacheKey, lastTime);
+                // API 호출 성공 → 값만 반환 (DB 저장하지 않음)
+                log.debug("서울 버스 API 호출 성공: cacheKey={}, lastTime={}", cacheKey, lastTime);
                 return lastTime;
             }
 
@@ -305,14 +303,13 @@ public class TransitCacheService {
             log.debug("경기 버스 실시간 데이터 요청: routeId={}, dayType={}. 경기버스 API 호출...", routeId, convertedDayType);
             LocalDateTime lastBusTime = gyeonggiBusRouteClient.getLastBusTime(routeId);
 
-            // 2단계: API 성공 시 DB에 저장하고 반환
+            // 2단계: API 성공 시 값만 반환 (DB 저장 X)
             if (lastBusTime != null) {
                 // LocalDateTime → "HH:mm" 형식 변환
                 String lastTime = lastBusTime.format(DateTimeFormatter.ofPattern("HH:mm"));
 
-                // DB에 저장 (최신 데이터 업데이트)
-                transitCacheWriter.saveOrUpdate("BUS_GYEONGGI", routeId, convertedDayType, lastTime);
-                log.debug("경기버스 API 호출 성공, DB 저장 완료: routeId={}, lastTime={}", routeId, lastTime);
+                // API 호출 성공 → 값만 반환 (DB 저장하지 않음)
+                log.debug("경기버스 API 호출 성공: routeId={}, lastTime={}", routeId, lastTime);
                 return lastTime;
             }
 
