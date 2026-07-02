@@ -45,7 +45,7 @@ public class TransitCacheWriter {
      *
      * 동작:
      *   1. DB에서 해당 캐시 레코드 조회 (transitType + cacheKey + dayType 조합)
-     *   2. 있으면: updateLastTime() 메서드로 막차 시간 갱신
+     *   2. 있으면: 막차 시각이 변경된 경우에만 UPDATE (불필요한 DB write 방지)
      *   3. 없으면: 새로운 레코드 생성 및 저장
      *
      * 트랜잭션:
@@ -59,10 +59,15 @@ public class TransitCacheWriter {
      *   saveOrUpdate("SUBWAY", "136", "WEEKDAY", "23:45")
      *   → DB에 INSERT (첫 조회 시)
      *
-     *   // 2. 기존 캐시 갱신
+     *   // 2. 기존 캐시 갱신 (막차 시각 변경 시)
      *   saveOrUpdate("SUBWAY", "136", "WEEKDAY", "23:50")
      *   → DB의 기존 레코드를 23:50으로 UPDATE
      *   → updatedAt = LocalDateTime.now() 자동 갱신
+     *
+     *   // 3. 기존 캐시 동일 (갱신 스킵)
+     *   saveOrUpdate("SUBWAY", "136", "WEEKDAY", "23:45")
+     *   → 기존 값이 이미 "23:45"이면 UPDATE 스킵
+     *   → 불필요한 DB write 방지
      *
      * @param transitType 대중교통 타입 ("SUBWAY", "BUS_SEOUL", "BUS_GYEONGGI")
      * @param cacheKey 캐시 키
@@ -80,12 +85,18 @@ public class TransitCacheWriter {
             .findByTransitTypeAndCacheKeyAndDayType(transitType, cacheKey, dayType);
 
         if (existing.isPresent()) {
-            // ── 기존 레코드 있음: 갱신 ──────────────────────────────────────────────
-            // 이전에 저장된 막차 시각을 최신 값으로 갱신
-            log.debug("캐시 업데이트: transitType={}, cacheKey={}, dayType={}, lastTime={}",
-                     transitType, cacheKey, dayType, lastTime);
-            existing.get().updateLastTime(lastTime);
-            lastTransitScheduleRepository.save(existing.get());
+            // ── 기존 레코드 있음: 막차 시각이 다를 경우에만 갱신 ──────────────────────
+            if (!existing.get().getLastTime().equals(lastTime)) {
+                // 막차 시각이 변경된 경우에만 UPDATE
+                log.debug("캐시 업데이트: transitType={}, cacheKey={}, dayType={}, lastTime={} → {}",
+                         transitType, cacheKey, dayType, existing.get().getLastTime(), lastTime);
+                existing.get().updateLastTime(lastTime);
+                lastTransitScheduleRepository.save(existing.get());
+            } else {
+                // 막차 시각이 동일하면 스킵 (불필요한 DB write 방지)
+                log.debug("캐시 동일, 업데이트 스킵: transitType={}, cacheKey={}, dayType={}, lastTime={}",
+                         transitType, cacheKey, dayType, lastTime);
+            }
         } else {
             // ── 새로운 레코드: 신규 저장 ──────────────────────────────────────────────
             // 처음 조회한 막차 정보를 DB에 저장
