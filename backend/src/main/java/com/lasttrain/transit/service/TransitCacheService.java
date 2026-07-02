@@ -173,18 +173,23 @@ public class TransitCacheService {
      * 조회 흐름 (실시간 데이터 우선):
      *   1. cacheKey 생성 (stId:busRouteId:ord)
      *   2. 서울 버스 API 호출 (실시간 데이터 획득)
-     *   3. API 성공 → LocalDateTime → "HH:mm" 변환 → DB 저장 → 반환
+     *   3. API 성공 → LocalDateTime → "HH:mm" 변환 → DB 저장 (Lazy Caching) → 반환
      *   4. API 실패 → DB에서 마지막 저장값 조회 → 반환 (log.warn 발생)
      *   5. DB도 없음 → null 반환
      *
+     * Lazy Caching 전략:
+     *   - 처음 조회 시: API 호출 → DB에 저장 (이후 Fallback 용도)
+     *   - 이후 API 장애 시: DB에서 마지막 저장값으로 Fallback
+     *
      * 예시 (정상):
      *   getSeoulBusLastTime("124000414", "100100578", "29", "1")
-     *   → 서울 버스 API 호출 → "23:45" 반환 → DB 저장 → 반환: "23:45"
+     *   → 서울 버스 API 호출 → "23:45" → DB 저장 → 반환: "23:45"
+     *   → 이후 API 장애 시 이 DB 값으로 Fallback 가능
      *
      * 예시 (Fallback):
      *   getSeoulBusLastTime("124000414", "100100578", "29", "1")
      *   → 서울 버스 API 실패
-     *   → DB에서 마지막값 조회 → "23:42"
+     *   → DB에서 마지막값 조회 → "23:42" (이전에 저장된 값)
      *   → log.warn("서울 버스 API 실패, DB Fallback 사용: stId=124000414...")
      *   → 반환: "23:42"
      *
@@ -206,14 +211,15 @@ public class TransitCacheService {
             log.debug("서울 버스 실시간 데이터 요청: cacheKey={}, dayType={}. 서울 버스 API 호출...", cacheKey, convertedDayType);
             LocalDateTime lastBusTime = seoulBusArrivalClient.getLastBusTime(stId, busRouteId, ord);
 
-            // 2단계: API 성공 시 값만 반환 (DB 저장 X)
+            // 2단계: API 성공 시 DB 저장 (Lazy Caching) + 반환
             if (lastBusTime != null) {
                 // LocalDateTime → "HH:mm" 형식 변환
                 // 예: 2026-07-01T23:45:00 → "23:45"
                 String lastTime = lastBusTime.format(DateTimeFormatter.ofPattern("HH:mm"));
 
-                // API 호출 성공 → 값만 반환 (DB 저장하지 않음)
+                // API 호출 성공 → DB에 저장 (이후 API 장애 시 Fallback 용도)
                 log.debug("서울 버스 API 호출 성공: cacheKey={}, lastTime={}", cacheKey, lastTime);
+                transitCacheWriter.saveOrUpdate("BUS_SEOUL", cacheKey, convertedDayType, lastTime);
                 return lastTime;
             }
 
@@ -275,18 +281,23 @@ public class TransitCacheService {
      *
      * 조회 흐름 (실시간 데이터 우선):
      *   1. 경기버스 API 호출 (실시간 데이터 획득)
-     *   2. API 성공 → LocalDateTime → "HH:mm" 변환 → DB 저장 → 반환
+     *   2. API 성공 → LocalDateTime → "HH:mm" 변환 → DB 저장 (Lazy Caching) → 반환
      *   3. API 실패 → DB에서 마지막 저장값 조회 → 반환 (log.warn 발생)
      *   4. DB도 없음 → null 반환
      *
+     * Lazy Caching 전략:
+     *   - 처음 조회 시: API 호출 → DB에 저장 (이후 Fallback 용도)
+     *   - 이후 API 장애 시: DB에서 마지막 저장값으로 Fallback
+     *
      * 예시 (정상):
      *   getGyeonggiBusLastTime("200000037", "1")
-     *   → 경기버스 API 호출 → "23:50" 반환 → DB 저장 → 반환: "23:50"
+     *   → 경기버스 API 호출 → "23:50" → DB 저장 → 반환: "23:50"
+     *   → 이후 API 장애 시 이 DB 값으로 Fallback 가능
      *
      * 예시 (Fallback):
      *   getGyeonggiBusLastTime("200000037", "1")
      *   → 경기버스 API 실패
-     *   → DB에서 마지막값 조회 → "23:48"
+     *   → DB에서 마지막값 조회 → "23:48" (이전에 저장된 값)
      *   → log.warn("경기버스 API 실패, DB Fallback 사용: routeId=200000037")
      *   → 반환: "23:48"
      *
@@ -303,13 +314,14 @@ public class TransitCacheService {
             log.debug("경기 버스 실시간 데이터 요청: routeId={}, dayType={}. 경기버스 API 호출...", routeId, convertedDayType);
             LocalDateTime lastBusTime = gyeonggiBusRouteClient.getLastBusTime(routeId);
 
-            // 2단계: API 성공 시 값만 반환 (DB 저장 X)
+            // 2단계: API 성공 시 DB 저장 (Lazy Caching) + 반환
             if (lastBusTime != null) {
                 // LocalDateTime → "HH:mm" 형식 변환
                 String lastTime = lastBusTime.format(DateTimeFormatter.ofPattern("HH:mm"));
 
-                // API 호출 성공 → 값만 반환 (DB 저장하지 않음)
+                // API 호출 성공 → DB에 저장 (이후 API 장애 시 Fallback 용도)
                 log.debug("경기버스 API 호출 성공: routeId={}, lastTime={}", routeId, lastTime);
+                transitCacheWriter.saveOrUpdate("BUS_GYEONGGI", routeId, convertedDayType, lastTime);
                 return lastTime;
             }
 

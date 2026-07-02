@@ -79,8 +79,11 @@ public interface LastTransitScheduleRepository extends JpaRepository<LastTransit
      *   WHERE transit_type = ? AND cache_key = ? AND day_type = ?
      *   LIMIT 1
      *
-     * @param transitType 대중교통 타입 (예: "SUBWAY", "BUS")
-     * @param cacheKey 출발지_도착지 조합 (예: "1000_2000")
+     * @param transitType 대중교통 타입 (예: "SUBWAY", "BUS_SEOUL", "BUS_GYEONGGI")
+     * @param cacheKey 캐시 키
+     *                 - SUBWAY: ODsay stationId (예: "136", "729")
+     *                 - BUS_SEOUL: "stId:busRouteId:ord" (예: "124000414:100100578:29")
+     *                 - BUS_GYEONGGI: 경기버스 routeId (예: "200000037")
      * @param dayType 요일 타입 (예: "WEEKDAY", "SATURDAY", "SUNDAY")
      * @return 해당하는 막차 정보 (없으면 Optional.empty())
      *
