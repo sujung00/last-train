@@ -27,36 +27,39 @@ import java.util.Optional;
  *   @Autowired
  *   private LastTransitScheduleRepository repository;
  *
- *   public Optional<LastTransitSchedule> getLastTrain(String transitType, String cacheKey, String dayType) {
- *       // "SUBWAY", "1000_2000", "WEEKDAY" 조합으로 막차 시간 조회
+ *   // === 사용 사례 1: 실시간 API 호출 실패 시 Fallback 조회 ===
+ *   public Optional<LastTransitSchedule> getFallbackLastTrain(String transitType, String cacheKey, String dayType) {
+ *       // 실시간 API 호출 실패 시 → DB에서 마지막 저장값으로 Fallback
  *       Optional<LastTransitSchedule> schedule = repository.findByTransitTypeAndCacheKeyAndDayType(
  *           "SUBWAY",
- *           "1000_2000",
+ *           "136",
  *           "WEEKDAY"
  *       );
  *
  *       if (schedule.isPresent()) {
+ *           System.out.println("API 장애, Fallback 사용");
  *           System.out.println("막차 시간: " + schedule.get().getLastTime()); // "23:45"
  *           System.out.println("마지막 갱신: " + schedule.get().getUpdatedAt());
  *       } else {
- *           System.out.println("조회된 막차 정보가 없음 → API에서 새로 조회 필요");
+ *           System.out.println("Fallback 데이터도 없음 → 사용자에게 안내");
  *       }
  *   }
  *
- *   public void saveOrUpdateLastTrain() {
+ *   // === 사용 사례 2: 스케줄러에서 DB 갱신 ===
+ *   public void updateByScheduler() {
  *       Optional<LastTransitSchedule> existing = repository.findByTransitTypeAndCacheKeyAndDayType(
- *           "SUBWAY", "1000_2000", "WEEKDAY"
+ *           "SUBWAY", "136", "WEEKDAY"
  *       );
  *
  *       if (existing.isPresent()) {
- *           // 기존 데이터 수정
+ *           // 스케줄러가 주기적으로 실행하여 데이터 갱신
  *           existing.get().updateLastTime("23:50");
  *           repository.save(existing.get());
  *       } else {
- *           // 새 데이터 저장
+ *           // 새 데이터 저장 (초기 적재)
  *           LastTransitSchedule newSchedule = LastTransitSchedule.builder()
  *               .transitType("SUBWAY")
- *               .cacheKey("1000_2000")
+ *               .cacheKey("136")
  *               .dayType("WEEKDAY")
  *               .lastTime("23:45")
  *               .updatedAt(LocalDateTime.now())

@@ -6,20 +6,25 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 /**
- * 막차 시간 캐시 엔티티
+ * 스케줄러가 미리 적재해두는 막차 시각 Fallback 테이블
  *
  * 용도:
- *   - 사용자가 조회한 "출발지 → 도착지" 조합의 막차 시간을 캐시
- *   - 같은 조합을 다시 조회할 때 ODsay API 호출 대신 이 테이블에서 조회
- *   - API 호출 횟수 감소 → 성능 향상, API 할당량 절약
+ *   - 평상시: 실시간 API(ODsay/서울버스/경기버스)로 막차 시각 조회
+ *   - API 장애 시: 이 테이블에서 마지막 저장값으로 Fallback
+ *   - 스케줄러가 DB에 미리 적재하고 정기적으로 갱신
+ *
+ * 데이터 적재 방식:
+ *   - SubwayStationLoader: 앱 시작 시 마스터 데이터 초기 적재
+ *   - TransitRefreshScheduler: 정기적으로 스케줄러 실행하여 DB 갱신
+ *   - 사용자 요청 시에는 DB 저장/갱신 없음 (스케줄러만 관리)
  *
  * 캐시 갱신 전략:
- *   - 저장된 데이터가 오래되면 (예: 1주일 이상) API를 호출해서 갱신
+ *   - 스케줄러가 정기적으로 실행하여 latest 데이터 유지
  *   - updateLastTime() 메서드로 updated_at을 최신 시각으로 갱신
  *
  * 데이터 구조 예시:
  *   - transitType: "SUBWAY"
- *   - cacheKey: "출발지역코드_도착지역코드" (예: "1000_2000")
+ *   - cacheKey: ODsay stationId 또는 버스 노선ID (예: "136", "100100578:124000414:29")
  *   - dayType: "WEEKDAY" (평일) / "SATURDAY" / "SUNDAY"
  *   - lastTime: "23:45" (마지막 열차 시간)
  *   - updatedAt: 2026-07-01 10:30:00 (이 데이터를 마지막으로 갱신한 시각)

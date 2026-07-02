@@ -12,18 +12,23 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 /**
- * 막차 캐시 데이터베이스 저장/갱신 서비스
+ * 스케줄러 전용 DB 저장/갱신 서비스
  *
  * 역할:
  *   - DB에 캐시를 저장하거나 갱신하는 책임만 담당
- *   - 외부 API 호출, JSON 파싱은 TransitCacheService에서 담당
+ *   - 스케줄러(SubwayStationLoader, TransitRefreshScheduler)에서만 호출됨
+ *   - 사용자 요청 흐름에서는 호출되지 않음 (실시간 API → Fallback 구조이므로)
  *   - @Transactional(propagation = REQUIRES_NEW)로 독립적인 트랜잭션 실행
  *
+ * 데이터 적재 시점:
+ *   - SubwayStationLoader: 앱 시작 시 마스터 데이터 초기 적재
+ *   - TransitRefreshScheduler: 정기적으로 스케줄러 실행하여 DB 갱신
+ *
  * 책임 분리 (Single Responsibility Principle):
- *   - TransitCacheService: 캐시 조회 로직 + 외부 API 호출
+ *   - TransitCacheService: 실시간 API 호출 + Fallback 조회 로직
  *   - TransitCacheWriter: DB 저장/갱신만 (쓰기 책임)
  *
- * 사용 예시:
+ * 사용 예시 (스케줄러에서만 호출):
  *   // 캐시 저장 또는 갱신
  *   transitCacheWriter.saveOrUpdate("SUBWAY", "136", "WEEKDAY", "23:45");
  *   transitCacheWriter.saveOrUpdate("BUS_SEOUL", "136:100100578:29", "WEEKDAY", "23:50");
