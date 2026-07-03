@@ -138,16 +138,24 @@ public class LastTrainCalculator {
             }
 
             // 대중교통 구간: 막차 조회
-            String lineName = extractLineName(subPath);
+            String type = null;
+            if (trafficType == 1) {
+                type = "SUBWAY";
+            } else if (trafficType == 2) {
+                type = "BUS";
+            }
+
+            log.debug("[ODsay subPath 분석] trafficType={}, type={}, startName={}, endName={}",
+                    trafficType, type, subPath.path("startName").asText(), subPath.path("endName").asText());
+
+            String lineName = extractLineName(subPath, trafficType);
             String startName = subPath.path("startName").asText();
             String endName = subPath.path("endName").asText();
 
             LocalDateTime lastTransitTime = null;
-            String type = null;
 
             if (trafficType == 1) {
                 // ── 지하철(1) ──────────────────────────────────────────────────────────
-                type = "SUBWAY";
                 String startId = subPath.path("startID").asText();
                 // TransitCacheService를 통해 막차 조회 (캐시 적용)
                 // API 호출 + DB 저장 또는 DB에서 직접 조회
@@ -156,8 +164,18 @@ public class LastTrainCalculator {
 
             } else if (trafficType == 2) {
                 // ── 버스(2) ────────────────────────────────────────────────────────────
-                type = "BUS";
-                int busCityCode = subPath.path("busCityCode").asInt();
+                // busCityCode를 lane[0].busCityCode에서 추출 (ODsay 응답 구조)
+                JsonNode lane = subPath.path("lane");
+                int busCityCode = 0;
+                if (lane.isArray() && !lane.isEmpty()) {
+                    busCityCode = lane.get(0).path("busCityCode").asInt(0);
+                }
+
+                // busCityCode가 없으면 subPath 직접 경로에서 시도
+                if (busCityCode == 0) {
+                    busCityCode = subPath.path("busCityCode").asInt(0);
+                }
+
                 log.debug("[LastTrainCalculator] 버스 구간: line={}, busCityCode={}, busRouteId={}",
                     lineName, busCityCode, subPath.path("busRouteId").asText());
 
@@ -262,7 +280,7 @@ public class LastTrainCalculator {
                 continue;
             }
 
-            String lineName = extractLineName(subPath);
+            String lineName = extractLineName(subPath, trafficType);
             String startName = subPath.path("startName").asText();
             String endName = subPath.path("endName").asText();
             String type = trafficType == 1 ? "SUBWAY" : "BUS";
@@ -337,14 +355,57 @@ public class LastTrainCalculator {
     /**
      * subPath 노드에서 노선명을 추출합니다.
      *
-     * ODsay 응답 구조: subPath.lane[0].name = "2호선"
-     * lane 정보가 없으면 "알 수 없음"을 반환합니다.
+     * 지하철(trafficType=1): subPath.lane[0].name = "2호선"
+     * 버스(trafficType=2): subPath.lane[0].busNo = "5002"
+     *
+     * @param subPath subPath 노드
+     * @param trafficType 교통 수단 (1=지하철, 2=버스)
+     * @return 노선명, 없으면 "알 수 없음"
      */
-    private String extractLineName(JsonNode subPath) {
+    private String extractLineName(JsonNode subPath, int trafficType) {
         JsonNode lane = subPath.path("lane");
+        String transitType = trafficType == 1 ? "지하철" : "버스";
+
+        // ── lane 배열 구조 로깅 ────────────────────────────────────────────────
         if (lane.isArray() && !lane.isEmpty()) {
-            return lane.get(0).path("name").asText("알 수 없음");
+            JsonNode laneItem = lane.get(0);
+
+            log.debug("[ODsay lane[0] 분석] 교통 수단: {}", transitType);
+
+            // 버스(2): lane[0].busNo 사용
+            if (trafficType == 2) {
+                String busNo = laneItem.path("busNo").asText(null);
+                if (busNo != null && !busNo.isBlank()) {
+                    log.debug("[ODsay] 버스 노선명 추출: busNo={}", busNo);
+                    return busNo;
+                }
+
+                // busNo가 없으면 name 시도
+                String name = laneItem.path("name").asText(null);
+                if (name != null && !name.isBlank()) {
+                    log.debug("[ODsay] 버스 노선명 대체: name={}", name);
+                    return name;
+                }
+
+                log.warn("[ODsay] 버스 노선명 추출 실패 - lane[0] 필드:");
+                laneItem.fields().forEachRemaining(entry ->
+                    log.warn("  - {}: {}", entry.getKey(), entry.getValue().asText())
+                );
+                return "알 수 없음";
+            }
+
+            // 지하철(1): lane[0].name 사용
+            String name = laneItem.path("name").asText(null);
+            if (name != null && !name.isBlank()) {
+                log.debug("[ODsay] 지하철 노선명 추출: name={}", name);
+                return name;
+            }
+
+            log.warn("[ODsay] 지하철 노선명 추출 실패 - name 필드 없음");
+            return "알 수 없음";
         }
+
+        log.warn("[ODsay] lane 배열 없음 또는 비어있음 (trafficType={})", transitType);
         return "알 수 없음";
     }
 

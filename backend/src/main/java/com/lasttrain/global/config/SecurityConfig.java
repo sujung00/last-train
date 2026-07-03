@@ -54,6 +54,9 @@ public class SecurityConfig {
                         ).permitAll()
                         // 막차 조회 - 비회원 허용
                         .requestMatchers(HttpMethod.GET, "/api/v1/last-train").permitAll()
+                        // 성과 메트릭 - 비회원 허용
+                        .requestMatchers(HttpMethod.GET, "/admin/transit/metrics").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/admin/transit/metrics/reset").permitAll()
                         // 나머지는 인증 필요
                         .anyRequest().authenticated()
                 )

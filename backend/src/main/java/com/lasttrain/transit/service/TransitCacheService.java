@@ -16,6 +16,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -64,6 +66,21 @@ public class TransitCacheService {
     // DB 캐시 저장/갱신 담당
     private final TransitCacheWriter transitCacheWriter;
 
+    // ── 성과 측정 카운터 ──────────────────────────────────────────────────────
+    // API 호출 결과 통계
+    private static final AtomicInteger apiSuccessCount = new AtomicInteger(0);
+    private static final AtomicInteger apiFallbackCount = new AtomicInteger(0);
+
+    // DB Fallback 결과 통계
+    private static final AtomicInteger fallbackHitCount = new AtomicInteger(0);
+    private static final AtomicInteger fallbackMissCount = new AtomicInteger(0);
+
+    // 응답 시간 측정 (누적 시간)
+    private static final AtomicLong totalApiResponseTime = new AtomicLong(0);
+    private static final AtomicInteger apiCallCount = new AtomicInteger(0);
+    private static final AtomicLong totalFallbackResponseTime = new AtomicLong(0);
+    private static final AtomicInteger fallbackCallCount = new AtomicInteger(0);
+
     /**
      * 전철 막차 시각 조회 (실시간 API 우선 + DB Fallback)
      *
@@ -95,12 +112,21 @@ public class TransitCacheService {
      */
     public String getSubwayLastTime(String odsayStationId, String dayType) {
         try {
+            // ── API 응답 시간 측정 시작 ──
+            long apiStartTime = System.currentTimeMillis();
+
             // dayType 변환: 숫자 → 영문 (1→WEEKDAY, 2→SATURDAY, 3→SUNDAY)
             String convertedDayType = convertDayType(dayType);
 
             // 1단계: 외부 API 호출 (실시간 데이터 획득)
             log.debug("전철 실시간 데이터 요청: stationId={}, dayType={}. ODsay API 호출...", odsayStationId, convertedDayType);
             String scheduleJson = odsayClient.searchSubwaySchedule(odsayStationId, dayType);
+
+            // ── API 응답 시간 측정 종료 및 기록 ──
+            long apiEndTime = System.currentTimeMillis();
+            long apiResponseTime = apiEndTime - apiStartTime;
+            totalApiResponseTime.addAndGet(apiResponseTime);
+            apiCallCount.incrementAndGet();
 
             // 2단계: API 성공 시 값만 반환 (DB 저장 X)
             if (scheduleJson != null) {
@@ -110,12 +136,23 @@ public class TransitCacheService {
                 if (lastTime != null) {
                     // API 호출 성공 → 값만 반환 (DB 저장하지 않음)
                     log.debug("전철 API 호출 성공: stationId={}, lastTime={}", odsayStationId, lastTime);
+
+                    // ── 성과 측정: API 성공 카운트 ──
+                    apiSuccessCount.incrementAndGet();
+
                     return lastTime;
                 }
             }
 
             // 3단계: API 실패 시 DB에서 마지막 저장값 조회 (Fallback)
             log.warn("ODsay API 실패, DB Fallback 사용: stationId={}", odsayStationId);
+
+            // ── Fallback 응답 시간 측정 시작 ──
+            long fallbackStartTime = System.currentTimeMillis();
+
+            // ── 성과 측정: API Fallback 발생 카운트 ──
+            apiFallbackCount.incrementAndGet();
+
             Optional<LastTransitSchedule> fallback = lastTransitScheduleRepository
                 .findByTransitTypeAndCacheKeyAndDayType(
                     "SUBWAY",
@@ -123,11 +160,24 @@ public class TransitCacheService {
                     convertedDayType
                 );
 
+            // ── Fallback 응답 시간 측정 종료 및 기록 ──
+            long fallbackEndTime = System.currentTimeMillis();
+            long fallbackResponseTime = fallbackEndTime - fallbackStartTime;
+            totalFallbackResponseTime.addAndGet(fallbackResponseTime);
+            fallbackCallCount.incrementAndGet();
+
             // 4단계: DB에서 값을 찾으면 반환, 없으면 null
             if (fallback.isPresent()) {
                 log.debug("DB Fallback 데이터 반환: stationId={}, lastTime={}", odsayStationId, fallback.get().getLastTime());
+
+                // ── 성과 측정: Fallback 히트 카운트 ──
+                fallbackHitCount.incrementAndGet();
+
                 return fallback.get().getLastTime();
             }
+
+            // ── 성과 측정: Fallback 미스 카운트 ──
+            fallbackMissCount.incrementAndGet();
 
             log.warn("ODsay API 실패 + DB 데이터 없음: stationId={}", odsayStationId);
             return null;
@@ -201,6 +251,9 @@ public class TransitCacheService {
      */
     public String getSeoulBusLastTime(String stId, String busRouteId, String ord, String dayType) {
         try {
+            // ── API 응답 시간 측정 시작 ──
+            long apiStartTime = System.currentTimeMillis();
+
             // dayType 변환
             String convertedDayType = convertDayType(dayType);
 
@@ -211,6 +264,12 @@ public class TransitCacheService {
             log.debug("서울 버스 실시간 데이터 요청: cacheKey={}, dayType={}. 서울 버스 API 호출...", cacheKey, convertedDayType);
             LocalDateTime lastBusTime = seoulBusArrivalClient.getLastBusTime(stId, busRouteId, ord);
 
+            // ── API 응답 시간 측정 종료 및 기록 ──
+            long apiEndTime = System.currentTimeMillis();
+            long apiResponseTime = apiEndTime - apiStartTime;
+            totalApiResponseTime.addAndGet(apiResponseTime);
+            apiCallCount.incrementAndGet();
+
             // 2단계: API 성공 시 DB 저장 (Lazy Caching) + 반환
             if (lastBusTime != null) {
                 // LocalDateTime → "HH:mm" 형식 변환
@@ -219,12 +278,23 @@ public class TransitCacheService {
 
                 // API 호출 성공 → DB에 저장 (이후 API 장애 시 Fallback 용도)
                 log.debug("서울 버스 API 호출 성공: cacheKey={}, lastTime={}", cacheKey, lastTime);
+
+                // ── 성과 측정: API 성공 카운트 ──
+                apiSuccessCount.incrementAndGet();
+
                 transitCacheWriter.saveOrUpdate("BUS_SEOUL", cacheKey, convertedDayType, lastTime);
                 return lastTime;
             }
 
             // 3단계: API 실패 시 DB에서 마지막 저장값 조회 (Fallback)
             log.warn("서울 버스 API 실패, DB Fallback 사용: stId={}", stId);
+
+            // ── Fallback 응답 시간 측정 시작 ──
+            long fallbackStartTime = System.currentTimeMillis();
+
+            // ── 성과 측정: API Fallback 발생 카운트 ──
+            apiFallbackCount.incrementAndGet();
+
             Optional<LastTransitSchedule> fallback = lastTransitScheduleRepository
                 .findByTransitTypeAndCacheKeyAndDayType(
                     "BUS_SEOUL",
@@ -232,11 +302,24 @@ public class TransitCacheService {
                     convertedDayType
                 );
 
+            // ── Fallback 응답 시간 측정 종료 및 기록 ──
+            long fallbackEndTime = System.currentTimeMillis();
+            long fallbackResponseTime = fallbackEndTime - fallbackStartTime;
+            totalFallbackResponseTime.addAndGet(fallbackResponseTime);
+            fallbackCallCount.incrementAndGet();
+
             // 4단계: DB에서 값을 찾으면 반환, 없으면 null
             if (fallback.isPresent()) {
                 log.debug("DB Fallback 데이터 반환: cacheKey={}, lastTime={}", cacheKey, fallback.get().getLastTime());
+
+                // ── 성과 측정: Fallback 히트 카운트 ──
+                fallbackHitCount.incrementAndGet();
+
                 return fallback.get().getLastTime();
             }
+
+            // ── 성과 측정: Fallback 미스 카운트 ──
+            fallbackMissCount.incrementAndGet();
 
             log.warn("서울 버스 API 실패 + DB 데이터 없음: stId={}, busRouteId={}, ord={}",
                      stId, busRouteId, ord);
@@ -307,12 +390,21 @@ public class TransitCacheService {
      */
     public String getGyeonggiBusLastTime(String routeId, String dayType) {
         try {
+            // ── API 응답 시간 측정 시작 ──
+            long apiStartTime = System.currentTimeMillis();
+
             // dayType 변환
             String convertedDayType = convertDayType(dayType);
 
             // 1단계: 외부 API 호출 (실시간 데이터 획득)
             log.debug("경기 버스 실시간 데이터 요청: routeId={}, dayType={}. 경기버스 API 호출...", routeId, convertedDayType);
             LocalDateTime lastBusTime = gyeonggiBusRouteClient.getLastBusTime(routeId);
+
+            // ── API 응답 시간 측정 종료 및 기록 ──
+            long apiEndTime = System.currentTimeMillis();
+            long apiResponseTime = apiEndTime - apiStartTime;
+            totalApiResponseTime.addAndGet(apiResponseTime);
+            apiCallCount.incrementAndGet();
 
             // 2단계: API 성공 시 DB 저장 (Lazy Caching) + 반환
             if (lastBusTime != null) {
@@ -321,12 +413,23 @@ public class TransitCacheService {
 
                 // API 호출 성공 → DB에 저장 (이후 API 장애 시 Fallback 용도)
                 log.debug("경기버스 API 호출 성공: routeId={}, lastTime={}", routeId, lastTime);
+
+                // ── 성과 측정: API 성공 카운트 ──
+                apiSuccessCount.incrementAndGet();
+
                 transitCacheWriter.saveOrUpdate("BUS_GYEONGGI", routeId, convertedDayType, lastTime);
                 return lastTime;
             }
 
             // 3단계: API 실패 시 DB에서 마지막 저장값 조회 (Fallback)
             log.warn("경기버스 API 실패, DB Fallback 사용: routeId={}", routeId);
+
+            // ── Fallback 응답 시간 측정 시작 ──
+            long fallbackStartTime = System.currentTimeMillis();
+
+            // ── 성과 측정: API Fallback 발생 카운트 ──
+            apiFallbackCount.incrementAndGet();
+
             Optional<LastTransitSchedule> fallback = lastTransitScheduleRepository
                 .findByTransitTypeAndCacheKeyAndDayType(
                     "BUS_GYEONGGI",
@@ -334,11 +437,24 @@ public class TransitCacheService {
                     convertedDayType
                 );
 
+            // ── Fallback 응답 시간 측정 종료 및 기록 ──
+            long fallbackEndTime = System.currentTimeMillis();
+            long fallbackResponseTime = fallbackEndTime - fallbackStartTime;
+            totalFallbackResponseTime.addAndGet(fallbackResponseTime);
+            fallbackCallCount.incrementAndGet();
+
             // 4단계: DB에서 값을 찾으면 반환, 없으면 null
             if (fallback.isPresent()) {
                 log.debug("DB Fallback 데이터 반환: routeId={}, lastTime={}", routeId, fallback.get().getLastTime());
+
+                // ── 성과 측정: Fallback 히트 카운트 ──
+                fallbackHitCount.incrementAndGet();
+
                 return fallback.get().getLastTime();
             }
+
+            // ── 성과 측정: Fallback 미스 카운트 ──
+            fallbackMissCount.incrementAndGet();
 
             log.warn("경기버스 API 실패 + DB 데이터 없음: routeId={}", routeId);
             return null;
@@ -500,5 +616,47 @@ public class TransitCacheService {
             case "3" -> "SUNDAY";
             default -> throw new IllegalArgumentException("유효하지 않은 dayType: " + dayType);
         };
+    }
+
+    // ── 성과 측정 메서드 (TransitAdminController에서 호출) ────────────────────────
+
+    /**
+     * 현재까지의 성과 메트릭을 조회합니다.
+     *
+     * @return 성과 메트릭 정보 (JSON 형식)
+     */
+    public static String getMetrics() {
+        int totalApiCalls = apiSuccessCount.get() + apiFallbackCount.get();
+        double successRate = totalApiCalls > 0 ? (double) apiSuccessCount.get() / totalApiCalls * 100 : 0;
+        double avgApiResponseTime = apiCallCount.get() > 0 ? (double) totalApiResponseTime.get() / apiCallCount.get() : 0;
+        double avgFallbackResponseTime = fallbackCallCount.get() > 0 ? (double) totalFallbackResponseTime.get() / fallbackCallCount.get() : 0;
+
+        return String.format(
+            "[API 성공] %d회 / [Fallback 발생] %d회 / [Fallback 히트] %d회 / [Fallback 미스] %d회\n" +
+            "API 성공률: %.2f%%\n" +
+            "외부 API 평균 응답 시간: %.2fms\n" +
+            "DB Fallback 평균 응답 시간: %.2fms",
+            apiSuccessCount.get(),
+            apiFallbackCount.get(),
+            fallbackHitCount.get(),
+            fallbackMissCount.get(),
+            successRate,
+            avgApiResponseTime,
+            avgFallbackResponseTime
+        );
+    }
+
+    /**
+     * 성과 메트릭을 리셋합니다.
+     */
+    public static void resetMetrics() {
+        apiSuccessCount.set(0);
+        apiFallbackCount.set(0);
+        fallbackHitCount.set(0);
+        fallbackMissCount.set(0);
+        totalApiResponseTime.set(0);
+        apiCallCount.set(0);
+        totalFallbackResponseTime.set(0);
+        fallbackCallCount.set(0);
     }
 }

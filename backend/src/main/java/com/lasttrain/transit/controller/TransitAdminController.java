@@ -1,9 +1,11 @@
 package com.lasttrain.transit.controller;
 
 import com.lasttrain.global.response.ApiResponse;
+import com.lasttrain.transit.service.TransitCacheService;
 import com.lasttrain.transit.service.TransitRefreshScheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
  *   - 관리자가 막차 시각 캐시를 수동으로 갱신할 수 있는 엔드포인트 제공
  *   - 지하철: 수동 트리거로 모든 역 갱신
  *   - 버스: 별도의 스케줄러가 매일 새벽 3시 자동 실행
+ *   - 성과 메트릭 조회 및 리셋 기능
  *
  * 경로: /admin/transit/...
  * 인증: 관리자 권한 필요 (향후 @PreAuthorize 추가 권장)
@@ -22,6 +25,9 @@ import org.springframework.web.bind.annotation.RestController;
  * 사용 예시:
  *   curl -X POST http://localhost:8080/admin/transit/refresh/subway
  *   → 지하철 모든 역의 막차 시각 갱신 시작
+ *
+ *   curl -X GET http://localhost:8080/admin/transit/metrics
+ *   → 성과 메트릭 조회
  */
 @RestController
 @RequestMapping("/admin/transit")
@@ -78,6 +84,84 @@ public class TransitAdminController {
         } catch (Exception e) {
             log.error("[TransitAdminController] 지하철 갱신 요청 중 오류 발생", e);
             return ApiResponse.ok("지하철 갱신 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 막차 조회 성과 메트릭을 조회합니다.
+     *
+     * 요청:
+     *   GET /admin/transit/metrics
+     *
+     * 응답 예시:
+     *   {
+     *     "success": true,
+     *     "data": "[API 성공] 1234회 / [Fallback 발생] 56회 / [Fallback 히트] 45회 / [Fallback 미스] 11회\n
+     *             API 성공률: 95.67%\n
+     *             외부 API 평균 응답 시간: 245.32ms\n
+     *             DB Fallback 평균 응답 시간: 12.45ms",
+     *     "error": null,
+     *     "timestamp": "2026-07-01T10:30:00"
+     *   }
+     *
+     * 메트릭 설명:
+     *   - [API 성공]: 외부 API 호출 성공 건수
+     *   - [Fallback 발생]: 외부 API 호출 실패로 Fallback 발생 건수
+     *   - [Fallback 히트]: Fallback에서 DB 데이터 발견한 건수
+     *   - [Fallback 미스]: Fallback에서 DB 데이터 없는 건수
+     *   - API 성공률: (API 성공 / 전체) × 100%
+     *   - 외부 API 평균 응답 시간: 모든 API 호출의 평균 시간
+     *   - DB Fallback 평균 응답 시간: 모든 Fallback 조회의 평균 시간
+     *
+     * @return 성과 메트릭 정보
+     */
+    @GetMapping("/metrics")
+    public ApiResponse<String> getMetrics() {
+        log.info("[TransitAdminController] 성과 메트릭 조회 요청");
+
+        try {
+            String metrics = TransitCacheService.getMetrics();
+            log.info("[TransitAdminController] 성과 메트릭 조회 완료:\n{}", metrics);
+            return ApiResponse.ok(metrics);
+
+        } catch (Exception e) {
+            log.error("[TransitAdminController] 메트릭 조회 중 오류 발생", e);
+            return ApiResponse.ok("메트릭 조회 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 막차 조회 성과 메트릭을 리셋합니다.
+     *
+     * 요청:
+     *   POST /admin/transit/metrics/reset
+     *
+     * 응답:
+     *   {
+     *     "success": true,
+     *     "data": "성과 메트릭이 리셋되었습니다.",
+     *     "error": null,
+     *     "timestamp": "2026-07-01T10:30:00"
+     *   }
+     *
+     * 용도:
+     *   - 새로운 측정 기간 시작 시 카운터 초기화
+     *   - 테스트 환경에서 깨끗한 상태 만들기
+     *
+     * @return 리셋 완료 메시지
+     */
+    @PostMapping("/metrics/reset")
+    public ApiResponse<String> resetMetrics() {
+        log.info("[TransitAdminController] 성과 메트릭 리셋 요청");
+
+        try {
+            TransitCacheService.resetMetrics();
+            log.info("[TransitAdminController] 성과 메트릭 리셋 완료");
+            return ApiResponse.ok("성과 메트릭이 리셋되었습니다.");
+
+        } catch (Exception e) {
+            log.error("[TransitAdminController] 메트릭 리셋 중 오류 발생", e);
+            return ApiResponse.ok("메트릭 리셋 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
 }

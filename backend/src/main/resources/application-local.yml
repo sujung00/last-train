@@ -36,7 +36,7 @@ spring:
 
   web:
     cors:
-      allowed-origins: http://localhost:3000
+      allowed-origins: http://localhost:3000,http://localhost:3001
 
 logging:
   level:
