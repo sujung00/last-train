@@ -33,8 +33,9 @@ export default function EmojiSelectorModal({ isOpen, onSelect, onClose, destinat
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center px-4">
-      <div className="bg-[#1a1a2e] rounded-lg p-6 max-w-sm w-full border border-gray-700">
+    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+      {/* 430px 기준으로 중앙 정렬되는 모달 */}
+      <div className="w-full max-w-[430px] bg-[#1a1a2e] rounded-lg p-6 border border-gray-700">
         {/* 헤더 */}
         <h2 className="text-white text-lg font-bold mb-2">
           "{destination}" 즐겨찾기 아이콘

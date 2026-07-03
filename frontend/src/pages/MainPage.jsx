@@ -39,6 +39,8 @@ export default function MainPage() {
   const [origin, setOrigin] = useState(null)
   // 도착지: {name, lat, lng}
   const [destination, setDestination] = useState(null)
+  // GPS 원본 위치 (GPS 복귀용): {name, lat, lng}
+  const [gpsLocation, setGpsLocation] = useState(null)
   // GPS 권한 거부 여부
   const [gpsError, setGpsError] = useState('')
   // 로딩 상태
@@ -78,11 +80,13 @@ export default function MainPage() {
         (position) => {
           // GPS 권한 허용: 좌표를 출발지로 설정
           const { latitude, longitude } = position.coords
-          setOrigin({
+          const gpsData = {
             name: '현재 위치 (GPS 자동)',
             lat: latitude,
             lng: longitude,
-          })
+          }
+          setOrigin(gpsData)
+          setGpsLocation(gpsData)  // GPS 원본 위치 저장 (복귀용)
           setGpsError('')
           setLoading(false)
         },
@@ -106,26 +110,33 @@ export default function MainPage() {
   // (FR-007: 즐겨찾기 목적지 칩 탭 시 해당 장소가 도착지로 자동 입력)
   useEffect(() => {
     const checkLoginAndLoadFavorites = async () => {
-      const token = localStorage.getItem('accessToken')
-      const loggedIn = !!token
+      // ── Step 1: accessToken 존재 여부 확인 ──────────────────────────────────
+      const accessToken = localStorage.getItem('accessToken')
+      const isLoggedInUser = !!accessToken
 
-      setIsLoggedIn(loggedIn)
+      setIsLoggedIn(isLoggedInUser)
 
-      // 비로그인 상태면 즐겨찾기 목록 조회 하지 않음
-      if (!loggedIn) {
+      // ── Step 2: accessToken 없으면 API 호출 자체를 하지 않음 ─────────────────
+      if (!isLoggedInUser) {
+        console.debug('비로그인 상태: 즐겨찾기 API 호출 생략')
         setFavorites([])
-        return
+        return  // ← API 호출 하지 않고 조기 반환
       }
 
-      // 로그인한 경우: GET /api/v1/favorites 호출
+      // ── Step 3: accessToken 있음 → GET /api/v1/favorites 호출 ────────────────
+      console.debug('로그인 상태 확인됨: 즐겨찾기 목록 조회 시작')
       setLoadingFavorites(true)
       try {
         const response = await api.get('/api/v1/favorites')
         // ApiResponse 형식: { code, data: [...] }
         const favoritesList = response.data?.data || []
+        console.debug(`즐겨찾기 ${favoritesList.length}개 조회 완료`)
         setFavorites(favoritesList)
       } catch (error) {
-        console.error('즐겨찾기 목록 조회 실패:', error)
+        console.error('❌ 즐겨찾기 목록 조회 실패:', {
+          status: error.response?.status,
+          message: error.message,
+        })
         setFavorites([])
       } finally {
         setLoadingFavorites(false)
@@ -220,6 +231,23 @@ export default function MainPage() {
     })
   }
 
+  // T-011: 최근 검색 항목 삭제 처리
+  const handleRemoveRecentSearch = (indexToRemove) => {
+    setRecentSearches((prev) => {
+      // 해당 인덱스의 항목 제거
+      const updated = prev.filter((_, index) => index !== indexToRemove)
+
+      // localStorage 업데이트
+      try {
+        localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated))
+      } catch (error) {
+        console.error('최근 검색 삭제 저장 실패:', error)
+      }
+
+      return updated
+    })
+  }
+
   // ── T-001: 출발지 검색 선택 처리 ───────────────────────────────────────
   // (FR-002, FR-006: 출발지 직접 검색 선택 시 GPS 자동 위치 대신 선택한 장소로 교체)
   const handleOriginSelect = (place) => {
@@ -249,8 +277,24 @@ export default function MainPage() {
     setShowOriginSearch(true)
   }
 
+  // ── GPS 위치로 복귀 버튼 ─────────────────────────────────────────────────
+  // (출발지를 직접 검색으로 변경한 후, 다시 GPS 자동으로 돌아가기)
+  const handleBackToGPS = () => {
+    if (gpsLocation) {
+      setOrigin(gpsLocation)
+    }
+  }
+
+  // ── GPS 복귀 버튼 표시 여부 판단 ─────────────────────────────────────────
+  // (출발지가 GPS 자동이 아닐 때만 표시)
+  const isOriginChangedFromGPS =
+    origin &&
+    gpsLocation &&
+    origin.name !== gpsLocation.name &&
+    origin.name !== '현재 위치 (GPS 자동)'
+
   // ── T-001: 막차 조회 버튼 클릭 ─────────────────────────────────────────
-  // (AC-007: 막차 조회 버튼 탭 → POST /api/v1/routes/last-train 호출)
+  // (AC-007: 막차 조회 버튼 탭 → GET /api/v1/last-train 호출)
   // T-012: EC-003, EC-004 에러 분기 처리
   const handleQueryLastTrain = async () => {
     // EC-007: 출발지와 도착지가 동일한 경우 검사
@@ -268,20 +312,22 @@ export default function MainPage() {
     setQueryError('')
 
     try {
-      const response = await fetch('/api/v1/routes/last-train', {
-        method: 'POST',
+      // ── GET 쿼리 파라미터 방식으로 변경 ──────────────────────────────────
+      // URL 인코딩된 쿼리 스트링 생성
+      const queryParams = new URLSearchParams({
+        originLat: origin.lat,
+        originLng: origin.lng,
+        originName: origin.name,
+        destLat: destination.lat,
+        destLng: destination.lng,
+        destName: destination.name,
+      }).toString()
+
+      const response = await fetch(`/api/v1/last-train?${queryParams}`, {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
         },
-        body: JSON.stringify({
-          originLat: origin.lat,
-          originLng: origin.lng,
-          originName: origin.name,
-          destLat: destination.lat,
-          destLng: destination.lng,
-          destName: destination.name,
-        }),
       })
 
       // ── T-012: 에러 분기 처리 ────────────────────────────────────────────
@@ -361,6 +407,19 @@ export default function MainPage() {
                     </div>
                   )}
                 </div>
+
+                {/* GPS 복귀 버튼 (출발지가 GPS 자동이 아닐 때만 표시) */}
+                {isOriginChangedFromGPS && (
+                  <button
+                    onClick={handleBackToGPS}
+                    className="px-4 py-3 bg-blue-700 hover:bg-blue-600 text-white font-medium rounded transition whitespace-nowrap text-sm"
+                    title="현재 위치(GPS)로 복귀"
+                  >
+                    📍 현재 위치로
+                  </button>
+                )}
+
+                {/* 변경 버튼 */}
                 <button
                   onClick={handleChangeOrigin}
                   className="px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded transition whitespace-nowrap"
@@ -464,17 +523,32 @@ export default function MainPage() {
                 </label>
                 <div className="space-y-2">
                   {recentSearches.map((search, index) => (
-                    <button
+                    <div
                       key={index}
-                      onClick={() => handleRecentSearchSelect(search)}
-                      className="w-full text-left px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded border border-gray-700 hover:border-gray-600 transition"
+                      className="flex items-center gap-2 group"
                     >
-                      <div className="text-white font-medium text-sm">
-                        {search.originName}
-                        <span className="text-purple-400 mx-2">→</span>
-                        {search.destName}
-                      </div>
-                    </button>
+                      <button
+                        onClick={() => handleRecentSearchSelect(search)}
+                        className="flex-1 text-left px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded border border-gray-700 hover:border-gray-600 transition"
+                      >
+                        <div className="text-white font-medium text-sm">
+                          {search.originName}
+                          <span className="text-purple-400 mx-2">→</span>
+                          {search.destName}
+                        </div>
+                      </button>
+                      {/* 삭제 버튼 */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleRemoveRecentSearch(index)
+                        }}
+                        className="px-3 py-3 bg-gray-700 hover:bg-red-600 text-gray-300 hover:text-white rounded border border-gray-700 hover:border-red-600 transition"
+                        title="이 항목 삭제"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>

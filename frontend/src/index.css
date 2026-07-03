@@ -1,1 +1,110 @@
 @import "tailwindcss";
+
+/* ════════════════════════════════════════════════════════════════════════════
+   핸드폰 화면 통일 스타일
+   ════════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* 핸드폰 레이아웃 기본값 (iPhone 비율: 430x844px) */
+  --phone-max-width: 430px;
+  --phone-height: 844px;
+  --phone-bg-outer: #d1d5db; /* 바깥 배경 (연한 회색) */
+  --phone-bg-inner: #1a1a2e; /* 앱 내부 배경 (어두운 배경) */
+  --phone-border-radius: 0.5rem; /* 모서리 반경 */
+  --phone-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25); /* 그림자 */
+  --phone-padding: 1rem; /* 반응형 패딩 */
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   1. 메인 앱 컨테이너 (App 전체)
+   ──────────────────────────────────────────────────────────────────────────── */
+.phone-app {
+  min-height: 100vh;
+  background-color: var(--phone-bg-outer);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--phone-padding);
+}
+
+.phone-app-inner {
+  width: 100%;
+  max-width: var(--phone-max-width);
+  height: var(--phone-height);
+  background-color: var(--phone-bg-inner);
+  border-radius: var(--phone-border-radius);
+  box-shadow: var(--phone-shadow);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Routes 컨테이너 (내부 스크롤 처리)
+   ──────────────────────────────────────────────────────────────────────────── */
+.phone-app-routes {
+  width: 100%;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   2. 모달 배경 (backdrop)
+   ────────────────────────────────────────────────────────────────────────────
+   fixed 포지셔닝이지만 핸드폰 화면 기준으로 중앙 정렬
+   ──────────────────────────────────────────────────────────────────────────── */
+.phone-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background-color: rgb(0 0 0 / 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: var(--phone-padding);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   3. 모달 콘텐츠 (bottom sheet 스타일)
+   ────────────────────────────────────────────────────────────────────────────
+   max-width 430px로 제한하고 수평 중앙 정렬
+   ──────────────────────────────────────────────────────────────────────────── */
+.phone-modal-content {
+  width: 100%;
+  max-width: var(--phone-max-width);
+  background-color: var(--phone-bg-inner);
+  border-radius: var(--phone-border-radius) var(--phone-border-radius) 0 0;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   4. 모달 헤더 (sticky 스타일)
+   ──────────────────────────────────────────────────────────────────────────── */
+.phone-modal-header {
+  position: sticky;
+  top: 0;
+  background-color: var(--phone-bg-inner);
+  border-bottom: 1px solid #374151;
+  padding: 1rem;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   5. 모달 본문
+   ──────────────────────────────────────────────────────────────────────────── */
+.phone-modal-body {
+  padding: 1rem;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   반응형: 더 큰 화면에서 모달도 430px 제한
+   ════════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 640px) {
+  .phone-modal-backdrop {
+    align-items: center;
+  }
+
+  .phone-modal-content {
+    border-radius: var(--phone-border-radius);
+  }
+}

@@ -8,16 +8,23 @@ import KakaoCallbackPage from './pages/KakaoCallbackPage'
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<MainPage />} />
-        <Route path="/result" element={<ResultPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-        <Route path="/favorites" element={<FavoritePage />} />
-        <Route path="/auth/kakao/callback" element={<KakaoCallbackPage />} />
-      </Routes>
-    </BrowserRouter>
+    <div className="phone-app">
+      {/* 핸드폰 화면 컨테이너 (430x844px 고정, 내부 스크롤) */}
+      <div className="phone-app-inner">
+        <BrowserRouter>
+          <div className="phone-app-routes">
+            <Routes>
+              <Route path="/" element={<MainPage />} />
+              <Route path="/result" element={<ResultPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/signup" element={<SignupPage />} />
+              <Route path="/favorites" element={<FavoritePage />} />
+              <Route path="/auth/kakao/callback" element={<KakaoCallbackPage />} />
+            </Routes>
+          </div>
+        </BrowserRouter>
+      </div>
+    </div>
   )
 }
 

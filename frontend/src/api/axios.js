@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: '/',
 })
 
 // 요청마다 Authorization 헤더에 AT 자동 추가

@@ -25,7 +25,18 @@ export default function PlaceSearchModal({ mode, onSelect, onClose }) {
   const debounceTimerId = useRef(null)
 
   // 카카오 API 키 (환경변수에서 로드)
-  const kakaoApiKey = import.meta.env.VITE_KAKAO_API_KEY
+  const kakaoApiKey = import.meta.env.VITE_KAKAO_REST_API_KEY
+
+  // ── API KEY 유효성 검사 ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!kakaoApiKey) {
+      console.error(
+        '❌ VITE_KAKAO_REST_API_KEY 환경변수가 설정되지 않았습니다.',
+        'frontend/.env.local 파일을 확인해주세요.'
+      )
+      setError('설정 오류: 카카오 API 키가 설정되지 않았어요.')
+    }
+  }, [kakaoApiKey])
 
   /**
    * 검색 입력 시: 300ms 디바운스 적용
@@ -47,10 +58,23 @@ export default function PlaceSearchModal({ mode, onSelect, onClose }) {
       return
     }
 
+    // API KEY 미설정 검사
+    if (!kakaoApiKey) {
+      setError('카카오 API가 설정되지 않았어요. 관리자에게 문의해주세요.')
+      setLoading(false)
+      return
+    }
+
     // 300ms 후 API 호출
     setLoading(true)
     debounceTimerId.current = setTimeout(async () => {
       try {
+        // ── 로그: Authorization 헤더 형식 확인 (개발 환경) ──────────────────────
+        console.debug(
+          '🔐 카카오 API 호출 시작:',
+          `Authorization: KakaoAK ${kakaoApiKey.substring(0, 8)}...`
+        )
+
         const response = await fetch(
           `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(
             text
@@ -62,9 +86,27 @@ export default function PlaceSearchModal({ mode, onSelect, onClose }) {
           }
         )
 
+        // ── 상태 코드별 상세 에러 처리 ────────────────────────────────────────
         if (!response.ok) {
-          throw new Error('카카오 API 호출 실패')
+          const errorDetails = await response.text().catch(() => '')
+          console.error(
+            `❌ 카카오 API 오류 [${response.status}]:`,
+            errorDetails || response.statusText
+          )
+
+          if (response.status === 401) {
+            throw new Error('API 키 인증 실패: VITE_KAKAO_REST_API_KEY를 확인해주세요.')
+          } else if (response.status === 403) {
+            throw new Error('API 접근 권한 없음: 카카오 개발자 콘솔에서 설정을 확인해주세요.')
+          } else if (response.status === 429) {
+            throw new Error('요청 제한: 잠시 후 다시 시도해주세요.')
+          } else {
+            throw new Error(`카카오 API 오류 (${response.status})`)
+          }
         }
+
+        // ── 성공 로그 ──────────────────────────────────────────────────────────
+        console.debug('✅ 카카오 API 호출 성공')
 
         const data = await response.json()
 
@@ -84,8 +126,12 @@ export default function PlaceSearchModal({ mode, onSelect, onClose }) {
         }
         setError('')
       } catch (err) {
-        console.error('장소 검색 오류:', err)
-        setError('검색 중 오류가 발생했어요. 다시 시도해주세요.')
+        // ── 에러 로깅 ────────────────────────────────────────────────────────
+        console.error('❌ 장소 검색 오류:', {
+          message: err.message,
+          stack: err.stack,
+        })
+        setError(err.message || '검색 중 오류가 발생했어요. 다시 시도해주세요.')
         setResults([])
       } finally {
         setLoading(false)
@@ -118,11 +164,11 @@ export default function PlaceSearchModal({ mode, onSelect, onClose }) {
   const title = mode === 'origin' ? '출발지 검색' : '도착지 검색'
 
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end">
-      {/* 모달 콘텐츠 */}
-      <div className="w-full bg-[#1a1a2e] rounded-t-lg max-h-[90vh] overflow-y-auto">
+    <div className="phone-modal-backdrop">
+      {/* 모달 콘텐츠 (430px 기준으로 중앙 정렬) */}
+      <div className="phone-modal-content">
         {/* 헤더 */}
-        <div className="sticky top-0 bg-[#1a1a2e] border-b border-gray-700 px-4 py-4">
+        <div className="phone-modal-header">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-white text-lg font-bold">{title}</h2>
             <button
@@ -147,7 +193,7 @@ export default function PlaceSearchModal({ mode, onSelect, onClose }) {
         </div>
 
         {/* 결과 영역 */}
-        <div className="px-4 py-4">
+        <div className="phone-modal-body">
           {/* 로딩 상태 */}
           {loading && (
             <div className="flex items-center justify-center py-8">

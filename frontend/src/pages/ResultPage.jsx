@@ -1,4 +1,5 @@
-import { useLocation, useNavigate, useEffect, useState } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import api from '../api/axios'
 import EmojiSelectorModal from '../components/EmojiSelectorModal'
 
@@ -41,7 +42,18 @@ export default function ResultPage() {
     return null
   }
 
-  const { origin, destination, date, dayType, routes } = result
+  // ── ApiResponse 구조 처리 ──────────────────────────────────────────────
+  // 백엔드에서 { code, data: { origin, destination, date, dayType, routes } } 형식으로 반환
+  const responseData = result?.data || result
+  const { origin, destination, date, dayType, routes } = responseData
+
+  // ── routes 안전 처리 (undefined/null 체크) ───────────────────────────────
+  // 경로 없음 또는 데이터 불완전한 경우 메인으로 리다이렉트
+  if (!routes || !Array.isArray(routes) || routes.length === 0) {
+    console.warn('⚠️ routes 데이터 없음:', { responseData, routes })
+    navigate('/')
+    return null
+  }
 
   // 경로를 최대 5개로 제한 (FR-010)
   const limitedRoutes = routes.slice(0, 5)
