@@ -117,7 +117,53 @@
 
 ---
 
-## 11. 검증 계획
+## 11. AWS 배포 구조
+
+```
+브라우저
+    ↓ HTTP:8080
+ECS Fargate Task (public IP)
+├── Spring Boot 백엔드
+└── React 프론트엔드 (static/ 폴더로 서빙)
+    ↓               ↓
+  RDS MySQL      ElastiCache Redis
+(db.t3.micro)   (cache.t3.micro)
+    ↓
+ODsay API / 서울버스 API / 경기버스 API (외부)
+```
+
+### 주요 리소스
+
+| 항목 | 값 |
+|------|-----|
+| 리전 | ap-northeast-2 (서울) |
+| ECS 클러스터 | last-train-cluster |
+| ECS 서비스 | last-train-service |
+| Task Definition | last-train-task (Fargate, 0.5vCPU / 1024MB) |
+| ECR | 010624488376.dkr.ecr.ap-northeast-2.amazonaws.com/last-train |
+| RDS | last-train-mysql (MySQL 8.0, db.t3.micro) |
+| ElastiCache | last-train-redis (Redis 7.1, cache.t3.micro) |
+| VPC | vpc-0d68c28fafffc26ae (기본 VPC) |
+
+### 보안 그룹
+
+| 이름 | ID | 허용 포트 |
+|------|-----|---------|
+| ecs-sg | sg-06c9bce4f623ef76a | 8080 (전체 허용) |
+| rds-sg | sg-0ba0810a6f4220e8f | 3306 (ecs-sg에서만) |
+| redis-sg | sg-03a79549231436fe9 | 6379 (ecs-sg에서만) |
+
+### 배포 방식
+
+- **단일 컨테이너**: React 빌드 결과물을 Spring Boot `static/` 폴더에 포함
+- **멀티 아키텍처**: Mac M1(ARM)에서 `docker buildx --platform linux/amd64`로 빌드
+- **ALB 없음**: ECS Task 퍼블릭 IP 직접 접근 (포트폴리오 비용 최소화)
+
+> ⚠️ ECS 재배포 시 Task IP가 변경되므로 ODsay 콘솔에서 새 IP 등록 필요
+
+---
+
+## 12. 검증 계획
 
 - GPS 권한 허용/거부 두 경로 모두 출발지 입력창이 정상 표시되는지 테스트한다.
 - 출발지/도착지 검색에서 동일한 장소 검색 컴포넌트가 재사용되는지 확인한다.
