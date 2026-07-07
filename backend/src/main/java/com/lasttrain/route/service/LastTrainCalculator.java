@@ -200,11 +200,15 @@ public class LastTrainCalculator {
                     String ord = subPath.path("staOrder").asText();
                     String lastTimeStr = transitCacheService.getSeoulBusLastTime(stId, busRouteId, ord, dayType);
                     lastTransitTime = parseLastTime(lastTimeStr, now.toLocalDate());
-                } else if (busCityCode == 1050) {
-                    // 경기도 버스 - TransitCacheService를 통해 조회 (캐시 적용)
+                } else if (busCityCode == 1050 || busCityCode == 2000 || busCityCode == 3000) {
+                    // 경기도 버스 (1050: 시내, 2000: 직행좌석, 3000: 인천) - TransitCacheService를 통해 조회 (캐시 적용)
                     String routeId = subPath.path("busRouteId").asText();
                     String lastTimeStr = transitCacheService.getGyeonggiBusLastTime(routeId, dayType);
                     lastTransitTime = parseLastTime(lastTimeStr, now.toLocalDate());
+                } else if (busCityCode != 0) {
+                    // 지원되지 않는 busCityCode는 경고 로그
+                    log.warn("[LastTrainCalculator] 지원되지 않는 busCityCode: {} (line={}, busRouteId={})",
+                            busCityCode, lineName, subPath.path("busRouteId").asText());
                 }
             }
 
