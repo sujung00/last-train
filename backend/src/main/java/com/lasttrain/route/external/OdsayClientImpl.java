@@ -9,8 +9,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * ODsay API를 실제로 호출하는 구현체입니다.
@@ -56,24 +56,29 @@ public class OdsayClientImpl implements OdsayClient {
     public String searchRoute(double sx, double sy, double ex, double ey) {
         log.debug("[ODsay] apiKey 확인: {}", apiKey);
 
-        // apiKey에 특수문자(+, /, = 등)가 포함될 수 있으므로 URL 인코딩을 직접 적용합니다.
-        String encodedApiKey = URLEncoder.encode(apiKey, StandardCharsets.UTF_8);
-
-        String url = baseUrl + "/searchPubTransPathT"
-                + "?apiKey=" + encodedApiKey
-                + "&SX=" + sx       // 출발지 경도
-                + "&SY=" + sy       // 출발지 위도
-                + "&EX=" + ex       // 목적지 경도
-                + "&EY=" + ey       // 목적지 위도
-                + "&SearchPathType=0"; // 0=버스+지하철 통합 경로
-
-        log.debug("[ODsay] 실제 URL: {}", url);
-
         try {
             log.debug("[ODsay] 경로 조회 요청: SX={}, SY={}, EX={}, EY={}", sx, sy, ex, ey);
-            // url 문자열은 이미 URLEncoder로 인코딩되어 있으므로,
-            // URI 객체로 그대로 전달해 RestTemplate의 재인코딩을 방지합니다.
-            URI uri = URI.create(url);
+
+            // ── API 키의 + 문자를 미리 %2B로 치환 ──────────────────────────────────
+            // queryParam에 추가하기 전에 + 문자를 %2B로 변환
+            String encodedApiKey = apiKey.replace("+", "%2B");
+            log.debug("[ODsay] 인코딩된 API 키: {}", encodedApiKey);
+
+            // ── UriComponentsBuilder를 사용한 URL 구성 ─────────────────────────────
+            // .build(true)는 이미 인코딩된 URI임을 의미 → 이중 인코딩 방지
+            URI uri = UriComponentsBuilder
+                    .fromUriString(baseUrl + "/searchPubTransPathT")
+                    .queryParam("apiKey", encodedApiKey)       // ✅ 이미 %2B로 치환됨
+                    .queryParam("SX", sx)                      // 출발지 경도
+                    .queryParam("SY", sy)                      // 출발지 위도
+                    .queryParam("EX", ex)                      // 목적지 경도
+                    .queryParam("EY", ey)                      // 목적지 위도
+                    .queryParam("SearchPathType", 0)           // 0=버스+지하철 통합 경로
+                    .build(true)                               // ✅ 이미 인코딩됨 (이중 인코딩 방지)
+                    .toUri();
+
+            log.debug("[ODsay] 최종 URL: {}", uri.toString());
+
             String response = restTemplate.getForObject(uri, String.class);
             log.debug("[ODsay] 경로 조회 성공");
             return response;
@@ -97,20 +102,27 @@ public class OdsayClientImpl implements OdsayClient {
      */
     @Override
     public String searchSubwaySchedule(String stationId, String dayType) {
-        // apiKey에 특수문자(+, /, = 등)가 포함될 수 있으므로 URL 인코딩을 직접 적용합니다.
-        String encodedApiKey = URLEncoder.encode(apiKey, StandardCharsets.UTF_8);
-
-        String url = baseUrl + "/subwayTimeTable"
-                + "?apiKey=" + encodedApiKey
-                + "&stationID=" + stationId
-                + "&dayType=" + dayType    // 1=평일, 2=토요일, 3=일요일
-                + "&firstLastFlag=2";      // 2=막차 고정
-
         try {
             log.debug("[ODsay] 지하철 시간표 조회 요청: stationId={}, dayType={}", stationId, dayType);
-            // url 문자열은 이미 URLEncoder로 인코딩되어 있으므로,
-            // URI 객체로 그대로 전달해 RestTemplate의 재인코딩을 방지합니다.
-            URI uri = URI.create(url);
+
+            // ── API 키의 + 문자를 미리 %2B로 치환 ──────────────────────────────────
+            // queryParam에 추가하기 전에 + 문자를 %2B로 변환
+            String encodedApiKey = apiKey.replace("+", "%2B");
+            log.debug("[ODsay] 인코딩된 API 키: {}", encodedApiKey);
+
+            // ── UriComponentsBuilder를 사용한 URL 구성 ─────────────────────────────
+            // .build(true)는 이미 인코딩된 URI임을 의미 → 이중 인코딩 방지
+            URI uri = UriComponentsBuilder
+                    .fromUriString(baseUrl + "/subwayTimeTable")
+                    .queryParam("apiKey", encodedApiKey)       // ✅ 이미 %2B로 치환됨
+                    .queryParam("stationID", stationId)        // 역 ID
+                    .queryParam("dayType", dayType)            // 1=평일, 2=토요일, 3=일요일
+                    .queryParam("firstLastFlag", 2)            // 2=막차 고정
+                    .build(true)                               // ✅ 이미 인코딩됨 (이중 인코딩 방지)
+                    .toUri();
+
+            log.debug("[ODsay] 최종 URL: {}", uri.toString());
+
             String response = restTemplate.getForObject(uri, String.class);
             log.debug("[ODsay] 지하철 시간표 조회 성공");
             return response;

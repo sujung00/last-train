@@ -61,17 +61,25 @@ public class LastTrainCalculator {
         List<RouteResponse.RouteItem> results = new ArrayList<>();
 
         try {
+            // ── 1단계: ODsay 응답 JSON 원본 로깅 ───────────────────────────────────
+            int jsonPreviewLength = Math.min(500, routeJson.length());
+            String jsonPreview = routeJson.substring(0, jsonPreviewLength);
+            log.info("[ODsay 응답] JSON 원본 ({}자 중 {}자): {}",
+                    routeJson.length(), jsonPreviewLength, jsonPreview);
+
             // JSON 문자열을 트리 구조로 파싱합니다.
             // result.path[] : ODsay가 제안하는 경로 목록 (보통 최대 5개)
             JsonNode paths = objectMapper.readTree(routeJson)
                                         .path("result")
                                         .path("path");
 
-            log.debug("[DEBUG] paths 개수: {}", paths.size());
+            // ── 2단계: 파싱된 paths 개수 로깅 ─────────────────────────────────────
+            log.info("[LastTrainCalculator] 파싱된 경로 개수: {}", paths.size());
 
             // 요일에 따라 ODsay dayType 코드를 결정합니다. (평일=1, 토=2, 일=3)
             String dayType = resolveDayType(now.getDayOfWeek());
 
+            // ── 3단계: 각 경로 처리 및 예외 로깅 ────────────────────────────────────
             for (JsonNode path : paths) {
                 try {
                     RouteResponse.RouteItem item = processPath(path, now, dayType);
@@ -80,12 +88,18 @@ public class LastTrainCalculator {
                     }
                 } catch (Exception e) {
                     // 한 경로 파싱 실패가 전체 계산을 중단시키면 안 됩니다.
-                    log.warn("[LastTrainCalculator] 경로 1건 파싱 실패, 스킵: {}", e.getMessage());
+                    log.info("[LastTrainCalculator] 경로 처리 중 예외 발생: {}",
+                            e.getClass().getSimpleName());
+                    log.info("[LastTrainCalculator] 예외 메시지: {}", e.getMessage());
+                    log.info("[LastTrainCalculator] 스택트레이스:", e);  // ← 스택트레이스 포함
                 }
             }
 
         } catch (Exception e) {
-            log.error("[LastTrainCalculator] routeJson 파싱 실패: {}", e.getMessage(), e);
+            log.info("[LastTrainCalculator] routeJson 전체 파싱 실패: {}",
+                    e.getClass().getSimpleName());
+            log.info("[LastTrainCalculator] 예외 메시지: {}", e.getMessage());
+            log.info("[LastTrainCalculator] 스택트레이스:", e);  // ← 스택트레이스 포함
         }
 
         return results;

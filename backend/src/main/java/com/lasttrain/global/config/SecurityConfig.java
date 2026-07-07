@@ -44,6 +44,21 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Swagger UI
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        // 정적 리소스 - 프론트엔드 배포 시 필요 (Docker에서 static-locations로 서빙)
+                        .requestMatchers(
+                                "/",
+                                "/index.html",
+                                "/favicon.ico",
+                                "/manifest.json"
+                        ).permitAll()
+                        .requestMatchers(
+                                "/assets/**",
+                                "/static/**",
+                                "/css/**",
+                                "/js/**",
+                                "/images/**",
+                                "/fonts/**"
+                        ).permitAll()
                         // 인증 불필요 API
                         .requestMatchers(
                                 "/api/v1/auth/signup",
