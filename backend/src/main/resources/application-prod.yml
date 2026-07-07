@@ -14,9 +14,8 @@ spring:
     show-sql: false
 
   data:
-    redis:
-      # 운영 Redis는 반드시 비밀번호 설정
-      password: ${REDIS_PASSWORD}
+    redis: {}
+      # ElastiCache는 비밀번호 없이 접속
 
 # ── Swagger 비활성화 ──────────────────────────────────────────────────────────
 # 운영 환경에서 Swagger 노출 금지 (API 구조 공개 위험)

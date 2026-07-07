@@ -33,6 +33,20 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
+  # ── Static Resources ─────────────────────────────────────────────────────
+  # file:./static/: Docker 컨테이너 내부의 /app/static 경로
+  # classpath:/static/: JAR 내부의 정적 리소스
+  web:
+    resources:
+      static-locations:
+        - file:./static/
+        - classpath:/static/
+
+  # ── Jackson JSON 직렬화 설정 ────────────────────────────────────────────────
+  # REST API 응답에서 날짜/시간 직렬화 시 타임존 설정
+  jackson:
+    time-zone: Asia/Seoul
+
 # ── JWT ──────────────────────────────────────────────────────────────────────
 # JWT_SECRET: 32자 이상 필수. 기본값 절대 금지.
 jwt:
