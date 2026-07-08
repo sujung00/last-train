@@ -295,13 +295,14 @@ export default function ResultPage() {
         )}
       </main>
 
-      {/* 이모지 선택 모달 (T-010: FR-013) */}
-      <EmojiSelectorModal
-        isOpen={showEmojiSelector}
-        onSelect={handleEmojiSelected}
-        onClose={() => setShowEmojiSelector(false)}
-        destination={destination}
-      />
+      {/* 이모지 선택 모달 (T-010: FR-013) - 조건부 렌더링으로 통일 */}
+      {showEmojiSelector && (
+        <EmojiSelectorModal
+          onSelect={handleEmojiSelected}
+          onClose={() => setShowEmojiSelector(false)}
+          destination={destination}
+        />
+      )}
     </div>
   )
 }

@@ -81,29 +81,48 @@ export default function FavoritePage() {
 
   // T-006: "+ 추가" 버튼 클릭 (PlaceSearchModal 표시)
   const handleAddFavorite = () => {
+    console.log('[목적지 추가 시작] showPlaceSearch: false → true')
     setShowPlaceSearch(true)
   }
 
   // T-006: "+ 목적지 추가" 버튼 클릭 (PlaceSearchModal 표시)
   const handleAddFavoriteEmpty = () => {
+    console.log('[목적지 추가 시작 (빈 목록)] showPlaceSearch: false → true')
     setShowPlaceSearch(true)
   }
 
-  // T-006: PlaceSearchModal에서 장소 선택
+  // T-006: PlaceSearchModal에서 장소 선택 (모달 닫기 포함)
   const handleSelectPlace = (place) => {
+    console.log('[장소 선택 완료]', {
+      place: place.name,
+      showPlaceSearch: 'true → false',
+      showAddEmojiSelector: 'false → true',
+      selectedPlace: place.name,
+    })
     setSelectedPlace(place)
-    setShowPlaceSearch(false)
-    setShowAddEmojiSelector(true)
+    setShowPlaceSearch(false)  // PlaceSearchModal 닫기
+    setShowAddEmojiSelector(true)  // EmojiSelectorModal 표시
   }
 
-  // T-006: PlaceSearchModal 닫기
+  // T-006: PlaceSearchModal 닫기 (X 버튼)
   const handleClosePlaceSearch = () => {
+    console.log('[PlaceSearchModal 닫기]', {
+      showPlaceSearch: 'true → false',
+      selectedPlace: 'null로 초기화',
+    })
     setShowPlaceSearch(false)
     setSelectedPlace(null)
   }
 
   // T-006: EmojiSelectorModal에서 이모지 선택 후 즐겨찾기 추가 (T-007: alert 제거)
   const handleSelectAddEmoji = async (emoji) => {
+    const token = localStorage.getItem('accessToken')
+    console.log('[이모지 선택 시작]', {
+      emoji,
+      selectedPlace: selectedPlace?.name,
+      token: token ? `${token.substring(0, 20)}...` : 'NO TOKEN',
+      showAddEmojiSelector: 'true → false',
+    })
     setShowAddEmojiSelector(false)
     setAdding(true)
     setError('')
@@ -111,7 +130,18 @@ export default function FavoritePage() {
     try {
       // POST /api/v1/favorites 호출
       // (ResultPage.jsx와 동일한 형식)
-      await api.post('/api/v1/favorites', {
+      console.log('[POST /api/v1/favorites 호출 시작]', {
+        payload: {
+          name: selectedPlace.name,
+          emoji: emoji,
+          lat: selectedPlace.lat,
+          lng: selectedPlace.lng,
+          address: selectedPlace.address || null,
+        },
+        authHeader: token ? `Bearer ${token.substring(0, 20)}...` : 'MISSING',
+      })
+
+      const response = await api.post('/api/v1/favorites', {
         name: selectedPlace.name,
         emoji: emoji,
         lat: selectedPlace.lat,
@@ -119,24 +149,44 @@ export default function FavoritePage() {
         address: selectedPlace.address || null,
       })
 
+      console.log('[즐겨찾기 추가 성공]', {
+        statusCode: response.status,
+        data: response.data,
+      })
+
       // 목록 갱신
-      const response = await api.get('/api/v1/favorites')
-      const favoritesList = response.data?.data || []
+      const listResponse = await api.get('/api/v1/favorites')
+      const favoritesList = listResponse.data?.data || []
       setFavorites(favoritesList)
 
       // 상태 초기화
+      console.log('[상태 초기화]', {
+        selectedPlace: 'null',
+        showAddEmojiSelector: false,
+      })
       setSelectedPlace(null)
     } catch (err) {
-      console.error('즐겨찾기 추가 실패:', err)
+      console.error('[즐겨찾기 추가 실패]', {
+        message: err.message,
+        statusCode: err.response?.status,
+        responseData: err.response?.data,
+        headers: err.response?.headers,
+        fullError: err,
+      })
       setError('즐겨찾기 추가 중 오류가 발생했어요. 다시 시도해주세요.')
     } finally {
       setAdding(false)
     }
   }
 
-  // T-006: EmojiSelectorModal 닫기
+  // T-006: EmojiSelectorModal 닫기 (X 버튼)
   const handleCloseAddEmojiSelector = () => {
+    console.log('[EmojiSelectorModal 닫기]', {
+      showAddEmojiSelector: 'true → false',
+      selectedPlace: 'null로 초기화',
+    })
     setShowAddEmojiSelector(false)
+    setSelectedPlace(null)
   }
 
   // T-003: "조회 →" 버튼 클릭
@@ -260,6 +310,16 @@ export default function FavoritePage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  // T-005-추가: 항목에서 직접 삭제 버튼 클릭 (확인 모달 표시)
+  const handleQuickDeleteFavorite = (favorite) => {
+    console.log('[항목 삭제 버튼 클릭]', {
+      favorite: favorite.name,
+      showConfirmDelete: 'false → true',
+    })
+    setDeleteTarget(favorite)
+    setConfirmDelete(true)
   }
 
   // T-005: 삭제 버튼 클릭 (T-007: confirm 제거, 삭제 확인 모달 표시)
@@ -387,7 +447,7 @@ export default function FavoritePage() {
                   </div>
                 </div>
 
-                {/* 버튼: 조회, 편집 */}
+                {/* 버튼: 조회, 편집, 삭제 */}
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleViewFavorite(favorite)}
@@ -402,6 +462,14 @@ export default function FavoritePage() {
                     className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded transition font-medium disabled:bg-gray-700 disabled:cursor-not-allowed"
                   >
                     편집
+                  </button>
+                  <button
+                    onClick={() => handleQuickDeleteFavorite(favorite)}
+                    disabled={querying || deleting}
+                    className="py-2 px-3 bg-red-900 hover:bg-red-800 text-red-200 text-sm rounded transition font-medium disabled:bg-gray-600 disabled:cursor-not-allowed"
+                    title="즐겨찾기 삭제"
+                  >
+                    🗑️
                   </button>
                 </div>
               </div>
@@ -526,28 +594,30 @@ export default function FavoritePage() {
         </div>
       )}
 
-      {/* T-004: EmojiSelectorModal 재활용 (편집용) */}
-      <EmojiSelectorModal
-        isOpen={showEmojiSelector}
-        onSelect={handleSelectEditEmoji}
-        onClose={() => setShowEmojiSelector(false)}
-        destination={editingFavorite?.name || ''}
-      />
-
-      {/* T-006: PlaceSearchModal 재활용 (목적지 추가) */}
-      <PlaceSearchModal
-        mode="destination"
-        onSelect={handleSelectPlace}
-        onClose={handleClosePlaceSearch}
-      />
-
-      {/* T-006: EmojiSelectorModal 재활용 (이모지 선택) */}
-      {showAddEmojiSelector && (
+      {/* T-004: EmojiSelectorModal 재활용 (편집용) - 조건부 렌더링 통일 */}
+      {showEmojiSelector && editingFavorite && (
         <EmojiSelectorModal
-          isOpen={showAddEmojiSelector}
+          onSelect={handleSelectEditEmoji}
+          onClose={() => setShowEmojiSelector(false)}
+          destination={editingFavorite.name || ''}
+        />
+      )}
+
+      {/* T-006: PlaceSearchModal 재활용 (목적지 추가) - 조건부 렌더링 추가 */}
+      {showPlaceSearch && (
+        <PlaceSearchModal
+          mode="destination"
+          onSelect={handleSelectPlace}
+          onClose={handleClosePlaceSearch}
+        />
+      )}
+
+      {/* T-006: EmojiSelectorModal 재활용 (이모지 선택) - PlaceSearchModal과 동일한 방식 */}
+      {showAddEmojiSelector && selectedPlace && (
+        <EmojiSelectorModal
           onSelect={handleSelectAddEmoji}
           onClose={handleCloseAddEmojiSelector}
-          destination={selectedPlace?.name || ''}
+          destination={selectedPlace.name?.trim() || '선택된 장소'}
         />
       )}
     </div>

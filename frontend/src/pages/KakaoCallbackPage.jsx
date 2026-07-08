@@ -21,7 +21,7 @@ export default function KakaoCallbackPage() {
 
       try {
         const response = await api.get(`/api/v1/auth/kakao/callback?code=${code}`)
-        const { accessToken, refreshToken } = response.data
+        const { accessToken, refreshToken } = response.data.data
 
         localStorage.setItem('accessToken', accessToken)
         localStorage.setItem('refreshToken', refreshToken)

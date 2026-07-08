@@ -140,16 +140,17 @@ export default function PlaceSearchModal({ mode, onSelect, onClose }) {
   }
 
   /**
-   * 검색 결과 선택 시: 콜백 호출 후 모달 닫기
-   * (AC-004: 선택한 장소를 설정하고 메인 홈으로)
+   * 검색 결과 선택 시: onSelect 콜백만 호출
+   * (FavoritePage에서 상태 관리 - onClose는 X 버튼 클릭시만)
    */
   const handleSelectPlace = (place) => {
     onSelect({
       name: place.name,
       lat: place.lat,
       lng: place.lng,
+      address: place.address || '',
     })
-    onClose()
+    // onClose는 여기서 호출하지 않음 - FavoritePage의 handleSelectPlace에서 상태 관리
   }
 
   // 언마운트 시 디바운스 타이머 정리
