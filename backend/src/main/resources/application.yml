@@ -71,7 +71,7 @@ kakao:
 seoul:
   bus:
     api-key: ${SEOUL_BUS_API_KEY}
-    base-url: http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList
+    base-url: http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRoute
 
 # ── Gyeonggi Bus API ──────────────────────────────────────────────────────────
 # 경기도 버스 노선 정보 API

@@ -190,25 +190,50 @@ public class LastTrainCalculator {
                     busCityCode = subPath.path("busCityCode").asInt(0);
                 }
 
-                log.debug("[LastTrainCalculator] 버스 구간: line={}, busCityCode={}, busRouteId={}",
-                    lineName, busCityCode, subPath.path("busRouteId").asText());
+                String busIdForLog = (lane.isArray() && !lane.isEmpty())
+                    ? lane.get(0).path("busID").asText("")
+                    : subPath.path("busID").asText("");
+                log.debug("[LastTrainCalculator] 버스 구간: line={}, busCityCode={}, busID={}",
+                    lineName, busCityCode, busIdForLog);
+
+                // ⚠️  임시 로깅: ODsay 응답 구조 확인용 (busID 필드명 검증)
+                // 실제 필드명이 busID, routeId, laneId 중 어느 것인지 확인하기 위함
+                log.debug("[LastTrainCalculator] subPath 전체 JSON: {}", subPath.toString());
 
                 if (busCityCode == 1000) {
                     // 서울시 버스 - TransitCacheService를 통해 조회 (캐시 적용)
-                    String stId = subPath.path("localStationID").asText();
-                    String busRouteId = subPath.path("busLocalBlID").asText();
-                    String ord = subPath.path("staOrder").asText();
-                    String lastTimeStr = transitCacheService.getSeoulBusLastTime(stId, busRouteId, ord, dayType);
-                    lastTransitTime = parseLastTime(lastTimeStr, now.toLocalDate());
-                } else if (busCityCode == 1050 || busCityCode == 2000 || busCityCode == 3000) {
-                    // 경기도 버스 (1050: 시내, 2000: 직행좌석, 3000: 인천) - TransitCacheService를 통해 조회 (캐시 적용)
-                    String routeId = subPath.path("busRouteId").asText();
-                    String lastTimeStr = transitCacheService.getGyeonggiBusLastTime(routeId, dayType);
-                    lastTransitTime = parseLastTime(lastTimeStr, now.toLocalDate());
+                    // lane[0] 하위에서 필드 읽기 (null 체크 포함)
+                    String stId = (lane.isArray() && !lane.isEmpty())
+                        ? lane.get(0).path("localStationID").asText("")
+                        : subPath.path("localStationID").asText("");
+                    String busRouteId = (lane.isArray() && !lane.isEmpty())
+                        ? lane.get(0).path("busLocalBlID").asText("")
+                        : subPath.path("busLocalBlID").asText("");
+                    String ord = (lane.isArray() && !lane.isEmpty())
+                        ? lane.get(0).path("staOrder").asText("")
+                        : subPath.path("staOrder").asText("");
+                    if (!stId.isEmpty() && !busRouteId.isEmpty() && !ord.isEmpty()) {
+                        String lastTimeStr = transitCacheService.getSeoulBusLastTime(stId, busRouteId, ord, dayType);
+                        lastTransitTime = parseLastTime(lastTimeStr, now.toLocalDate());
+                    }
+                } else if (busCityCode == 1030 || busCityCode == 1040 || busCityCode == 1050 || busCityCode == 1140 || busCityCode == 1160 || busCityCode == 2000 || busCityCode == 3000) {
+                    // 경기도/인천 버스 (1030: 마을, 1040: 마을, 1050: 시내, 1140: 직행좌석, 1160: 시내, 2000: 직행좌석, 3000: 인천) - TransitCacheService를 통해 조회 (캐시 적용)
+                    // lane[0] 하위에서 필드 읽기 (null 체크 포함)
+                    // 경기버스 API는 경기버스 로컬 ID(busLocalBlID)를 파라미터로 사용
+                    String routeId = (lane.isArray() && !lane.isEmpty())
+                        ? lane.get(0).path("busLocalBlID").asText("")
+                        : subPath.path("busLocalBlID").asText("");
+                    if (!routeId.isEmpty()) {
+                        String lastTimeStr = transitCacheService.getGyeonggiBusLastTime(routeId, dayType);
+                        lastTransitTime = parseLastTime(lastTimeStr, now.toLocalDate());
+                    }
                 } else if (busCityCode != 0) {
                     // 지원되지 않는 busCityCode는 경고 로그
-                    log.warn("[LastTrainCalculator] 지원되지 않는 busCityCode: {} (line={}, busRouteId={})",
-                            busCityCode, lineName, subPath.path("busRouteId").asText());
+                    String unsupportedBusId = (lane.isArray() && !lane.isEmpty())
+                        ? lane.get(0).path("busID").asText("")
+                        : subPath.path("busID").asText("");
+                    log.warn("[LastTrainCalculator] 지원되지 않는 busCityCode: {} (line={}, busID={})",
+                            busCityCode, lineName, unsupportedBusId);
                 }
             }
 
