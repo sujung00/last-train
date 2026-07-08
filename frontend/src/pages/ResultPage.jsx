@@ -7,6 +7,11 @@ import EmojiSelectorModal from '../components/EmojiSelectorModal'
  * T-008 구현: 결과 화면 구성
  * T-010 추가 구현: 즐겨찾기 추가 버튼 + 이모지 선택
  *
+ * ✅ FIX: 조건부 hooks 호출 제거
+ *   - 모든 useState/useEffect를 컴포넌트 최상단에 정의
+ *   - early return은 JSX에서 처리 (hooks 호출 이후)
+ *   - useEffect 내에서 result 체크하여 필요한 로직만 실행
+ *
  * FR-010: 막차 조회 결과 화면에 추천 경로와 대안 경로를 최대 5개까지 표시해야 한다
  * FR-011: 결과 화면 상단에 막차까지 남은 분(分)을 표시해야 한다
  * FR-012: 결과 화면에서 "즐겨찾기 추가" 버튼으로 해당 목적지를 즐겨찾기에 등록할 수 있어야 한다
@@ -29,13 +34,70 @@ export default function ResultPage() {
   const result = location.state?.result
   const destObject = location.state?.destination // MainPage에서 전달받은 destination 객체 {name, lat, lng}
 
-  // ── 즐겨찾기 관련 상태 ─────────────────────────────────────────────────
+  // ── 모든 State를 최상단에 정의 (early return보다 먼저) ─────────────────────
   const [isFavorited, setIsFavorited] = useState(false)
   const [showEmojiSelector, setShowEmojiSelector] = useState(false)
   const [isSavingFavorite, setIsSavingFavorite] = useState(false)
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [coordinateMissing, setCoordinateMissing] = useState(false)
 
+  // ✅ 로그인 상태: 초기값 계산 함수로 이동 (setState in effect 제거)
+  const [isLoggedIn] = useState(() => !!localStorage.getItem('accessToken'))
+
+  // ✅ 좌표 유효성: derived state로 계산 (setState in effect 제거)
+  const coordinateMissing = !destObject ||
+    !(typeof destObject.lat === 'number' && typeof destObject.lng === 'number')
+
+  // ✅ 출발지=도착지: derived state로 계산 (setState in effect 제거)
+  const sameOriginDest = result ?
+    (() => {
+      const responseData = result?.data || result
+      return responseData.origin === responseData.destination
+    })()
+    : false
+
+  // ── 모든 useEffect를 최상단에 정의 (early return보다 먼저) ───────────────────
+
+  // EC-007: 출발지 = 도착지 검사 (로그만 남김)
+  useEffect(() => {
+    if (!sameOriginDest) return
+    console.warn('EC-007: 출발지와 도착지가 동일함 (방어적 검사)')
+  }, [sameOriginDest])
+
+  // 좌표 유효성 검사 (로그만 남김)
+  useEffect(() => {
+    if (!destObject) return
+    if (!coordinateMissing) return
+
+    console.warn('⚠️ 도착지 좌표 정보 누락:', destObject)
+  }, [destObject, coordinateMissing])
+
+  // 이미 즐겨찾기에 등록된 목적지인지 확인 (EC-006)
+  useEffect(() => {
+    if (!isLoggedIn || !result) return
+
+    const responseData = result?.data || result
+    const { destination } = responseData
+
+    const checkFavorite = async () => {
+      try {
+        const response = await api.get('/api/v1/favorites')
+        // ApiResponse 형식: { code, data: [...] }
+        const favorites = response.data?.data || []
+
+        // destination 이름이 이미 등록되어 있는지 확인
+        const alreadyFavorited = favorites.some(
+          (fav) => fav.name === destination
+        )
+        setIsFavorited(alreadyFavorited)
+      } catch (error) {
+        console.error('즐겨찾기 목록 조회 실패:', error)
+        // 에러는 무시하고 계속 진행 (사용자가 즐겨찾기 추가는 가능)
+      }
+    }
+
+    checkFavorite()
+  }, [isLoggedIn, result])
+
+  // ── Early return은 JSX에서 처리 (모든 hooks 호출 이후) ─────────────────────
   // 데이터 미존재 시 메인으로 리다이렉트
   if (!result) {
     navigate('/')
@@ -62,65 +124,6 @@ export default function ResultPage() {
   const primaryRoute = limitedRoutes[0]
   const minutesLeft = primaryRoute?.currentStatus?.minutesLeft || 0
   const primaryMessage = primaryRoute?.currentStatus?.message || ''
-
-  // ── EC-007: 출발지 = 도착지 검사 ──────────────────────────────────────
-  // 직접 URL 접근이나 개발자 도구 조작으로 도달 가능하므로 사용자에게 안내
-  const [sameOriginDest, setSameOriginDest] = useState(false)
-  useEffect(() => {
-    const isSame = origin === destination
-    setSameOriginDest(isSame)
-    if (isSame) {
-      console.warn('EC-007: 출발지와 도착지가 동일함 (방어적 검사)')
-    }
-  }, [origin, destination])
-
-  // ── 좌표 유효성 검사 ────────────────────────────────────────────────────
-  // destination 좌표가 없으면 즐겨찾기 버튼 비활성화
-  useEffect(() => {
-    const hasValidCoordinates =
-      destObject &&
-      typeof destObject.lat === 'number' &&
-      typeof destObject.lng === 'number'
-
-    setCoordinateMissing(!hasValidCoordinates)
-
-    if (!hasValidCoordinates) {
-      console.warn(
-        '⚠️ 도착지 좌표 정보 누락:',
-        destObject
-      )
-    }
-  }, [destObject])
-
-  // ── T-010: 로그인 상태 확인 (AC-009, EC-005) ──────────────────────────
-  useEffect(() => {
-    const token = localStorage.getItem('accessToken')
-    setIsLoggedIn(!!token)
-  }, [])
-
-  // ── T-010: 이미 즐겨찾기에 등록된 목적지인지 확인 (EC-006) ───────────────
-  useEffect(() => {
-    if (!isLoggedIn) return
-
-    const checkFavorite = async () => {
-      try {
-        const response = await api.get('/api/v1/favorites')
-        // ApiResponse 형식: { code, data: [...] }
-        const favorites = response.data?.data || []
-
-        // destination 이름이 이미 등록되어 있는지 확인
-        const alreadyFavorited = favorites.some(
-          (fav) => fav.name === destination
-        )
-        setIsFavorited(alreadyFavorited)
-      } catch (error) {
-        console.error('즐겨찾기 목록 조회 실패:', error)
-        // 에러는 무시하고 계속 진행 (사용자가 즐겨찾기 추가는 가능)
-      }
-    }
-
-    checkFavorite()
-  }, [destination, isLoggedIn])
 
   // ── T-010: 즐겨찾기 추가 버튼 클릭 처리 (FR-012, AC-009, EC-005) ─────────
   const handleAddFavorite = () => {
@@ -199,7 +202,7 @@ export default function ResultPage() {
       <main className="flex-1 px-4 py-6 overflow-y-auto">
         {/* 출발지 = 도착지 경고 배너 (EC-007) */}
         {sameOriginDest && (
-          <div className="mb-6 text-sm text-yellow-400 bg-yellow-500 bg-opacity-10 px-4 py-3 rounded border border-yellow-500 border-opacity-30">
+          <div className="mb-6 text-sm text-yellow-200 bg-yellow-900 bg-opacity-50 px-4 py-3 rounded border border-yellow-600">
             ⚠️ 출발지와 도착지가 같아요
           </div>
         )}
@@ -249,9 +252,9 @@ export default function ResultPage() {
           </div>
         )}
 
-        {/* 좌표 정보 누락 경고 */}
+        {/* 좌표 정보 누락 에러 */}
         {limitedRoutes.length > 0 && coordinateMissing && (
-          <div className="mb-4 text-sm text-red-400 bg-red-500 bg-opacity-10 px-4 py-3 rounded border border-red-500 border-opacity-30">
+          <div className="mb-4 text-sm text-red-200 bg-red-900 bg-opacity-50 px-4 py-3 rounded border border-red-600">
             ❌ 도착지 정보를 가져올 수 없습니다. 다시 검색해주세요.
           </div>
         )}

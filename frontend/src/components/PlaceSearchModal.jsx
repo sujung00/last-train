@@ -19,7 +19,6 @@ export default function PlaceSearchModal({ mode, onSelect, onClose }) {
   const [searchText, setSearchText] = useState('')
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
 
   // 디바운스 타이머 ID (300ms)
   const debounceTimerId = useRef(null)
@@ -27,16 +26,17 @@ export default function PlaceSearchModal({ mode, onSelect, onClose }) {
   // 카카오 API 키 (환경변수에서 로드)
   const kakaoApiKey = import.meta.env.VITE_KAKAO_REST_API_KEY
 
-  // ── API KEY 유효성 검사 ────────────────────────────────────────────────────
-  useEffect(() => {
+  // ✅ 에러 상태: 초기값 계산 함수로 이동 (setState in effect 제거)
+  const [error, setError] = useState(() => {
     if (!kakaoApiKey) {
       console.error(
         '❌ VITE_KAKAO_REST_API_KEY 환경변수가 설정되지 않았습니다.',
         'frontend/.env.local 파일을 확인해주세요.'
       )
-      setError('설정 오류: 카카오 API 키가 설정되지 않았어요.')
+      return '설정 오류: 카카오 API 키가 설정되지 않았어요.'
     }
-  }, [kakaoApiKey])
+    return ''
+  })
 
   /**
    * 검색 입력 시: 300ms 디바운스 적용

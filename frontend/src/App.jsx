@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import FavoritePage from './pages/FavoritePage'
 import KakaoCallbackPage from './pages/KakaoCallbackPage'
+import BottomTabBar from './components/BottomTabBar'
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
               <Route path="/auth/kakao/callback" element={<KakaoCallbackPage />} />
             </Routes>
           </div>
+          <BottomTabBar />
         </BrowserRouter>
       </div>
     </div>

@@ -372,7 +372,7 @@ export default function MainPage() {
   const isQueryable = origin && destination
 
   return (
-    <div className="min-h-screen bg-[#1a1a2e] flex flex-col">
+    <div className="h-full bg-[#1a1a2e] flex flex-col">
       {/* 헤더 */}
       <header className="bg-[#1a1a2e] border-b border-gray-700 px-4 py-6 sticky top-0 z-10">
         <h1 className="text-2xl font-bold text-white">막차알리미 🚂</h1>
@@ -430,7 +430,7 @@ export default function MainPage() {
 
               {/* GPS 권한 거부 안내 (EC-001) */}
               {gpsError && (
-                <div className="mt-2 text-sm text-yellow-400 bg-yellow-500 bg-opacity-10 px-3 py-2 rounded border border-yellow-500 border-opacity-30">
+                <div className="mt-2 text-sm text-yellow-200 bg-yellow-900 bg-opacity-50 px-3 py-2 rounded border border-yellow-600">
                   {gpsError}
                 </div>
               )}
@@ -460,13 +460,13 @@ export default function MainPage() {
             {queryError && (
               <div className="mb-6 text-sm px-4 py-3 rounded border">
                 {queryError === '오늘 막차는 종료됐어요' ? (
-                  // EC-003: 막차 종료 - 주황색 배너
-                  <div className="text-yellow-400 bg-yellow-500 bg-opacity-10 border-yellow-500 border-opacity-30">
+                  // EC-003: 막차 종료 - 경고(노란색) 배너
+                  <div className="text-yellow-200 bg-yellow-900 bg-opacity-50 border-yellow-600">
                     ⏰ {queryError}
                   </div>
                 ) : (
-                  // EC-004: API 오류 - 빨간색 배너
-                  <div className="text-red-400 bg-red-500 bg-opacity-10 border-red-500 border-opacity-30">
+                  // EC-004: API 오류 - 에러(빨간색) 배너
+                  <div className="text-red-200 bg-red-900 bg-opacity-50 border-red-600">
                     ❌ {queryError}
                   </div>
                 )}
