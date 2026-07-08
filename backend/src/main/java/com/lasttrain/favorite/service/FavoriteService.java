@@ -5,6 +5,7 @@ import com.lasttrain.auth.repository.UserRepository;
 import com.lasttrain.favorite.domain.Favorite;
 import com.lasttrain.favorite.dto.FavoriteRequest;
 import com.lasttrain.favorite.dto.FavoriteResponse;
+import com.lasttrain.favorite.dto.FavoriteUpdateRequest;
 import com.lasttrain.favorite.repository.FavoriteRepository;
 import com.lasttrain.global.exception.AppException;
 import com.lasttrain.global.exception.ErrorCode;
@@ -64,7 +65,7 @@ public class FavoriteService {
     }
 
     /**
-     * 즐겨찾기를 수정하고 수정된 결과를 반환합니다.
+     * 즐겨찾기를 수정하고 수정된 결과를 반환합니다. (모든 필드)
      *
      * 수정 전에 반드시 "이 즐겨찾기가 요청한 사람의 것인지" 확인합니다.
      * 확인하지 않으면 다른 사람의 즐겨찾기를 임의로 수정하는 것이 가능해집니다.
@@ -83,6 +84,23 @@ public class FavoriteService {
         // 그래서 여기서는 save()를 호출하지 않아도 됩니다.
         favorite.update(request.name(), request.emoji(), request.lat(), request.lng(), request.address());
 
+        return favorite.toResponse();
+    }
+
+    /**
+     * 즐겨찾기의 이름과 이모지를 부분 수정하고 결과를 반환합니다. (PATCH)
+     *
+     * 수정 전에 반드시 "이 즐겨찾기가 요청한 사람의 것인지" 확인합니다.
+     *
+     * @param favoriteId 수정할 즐겨찾기의 ID
+     * @param request    수정할 내용 (이름, 이모지만)
+     * @param userId     JWT에서 추출한 현재 로그인 사용자의 ID
+     * @return 수정된 즐겨찾기 정보
+     */
+    @Transactional
+    public FavoriteResponse updatePartial(Long favoriteId, FavoriteUpdateRequest request, Long userId) {
+        Favorite favorite = findFavoriteWithOwnerCheck(favoriteId, userId);
+        favorite.updatePartial(request.name(), request.emoji());
         return favorite.toResponse();
     }
 

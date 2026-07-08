@@ -67,7 +67,7 @@ public class Favorite {
     }
 
     /**
-     * 즐겨찾기 정보를 수정합니다.
+     * 즐겨찾기 정보를 수정합니다. (모든 필드)
      *
      * JPA는 트랜잭션이 끝날 때 엔티티의 변경 사항을 감지해서(Dirty Checking)
      * 자동으로 UPDATE 쿼리를 실행합니다. 그래서 이 메서드를 호출한 뒤
@@ -86,6 +86,17 @@ public class Favorite {
         this.lat = BigDecimal.valueOf(lat);
         this.lng = BigDecimal.valueOf(lng);
         this.address = address;
+    }
+
+    /**
+     * 즐겨찾기의 이름과 이모지를 수정합니다. (PATCH 용도)
+     *
+     * @param name  새 즐겨찾기 이름
+     * @param emoji 새 이모지 (없으면 null)
+     */
+    public void updatePartial(String name, String emoji) {
+        this.name = name;
+        this.emoji = emoji;
     }
 
     /**

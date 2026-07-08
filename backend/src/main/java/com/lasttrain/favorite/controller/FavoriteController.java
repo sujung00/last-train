@@ -2,6 +2,7 @@ package com.lasttrain.favorite.controller;
 
 import com.lasttrain.favorite.dto.FavoriteRequest;
 import com.lasttrain.favorite.dto.FavoriteResponse;
+import com.lasttrain.favorite.dto.FavoriteUpdateRequest;
 import com.lasttrain.favorite.service.FavoriteService;
 import com.lasttrain.global.response.ApiResponse;
 import com.lasttrain.global.security.SecurityUserDetails;
@@ -58,24 +59,24 @@ public class FavoriteController {
         return ApiResponse.ok(favoriteService.add(request, userId));
     }
 
-    @Operation(summary = "즐겨찾기 수정")
+    @Operation(summary = "즐겨찾기 수정 (이름/이모지만)")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "수정 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "입력값 오류"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "본인 즐겨찾기만 수정 가능"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "즐겨찾기 없음")
     })
-    @PutMapping("/{id}")
-    public ApiResponse<FavoriteResponse> updateFavorite(
+    @PatchMapping("/{id}")
+    public ApiResponse<FavoriteResponse> patchFavorite(
             @Parameter(description = "즐겨찾기 ID", example = "1")
             @PathVariable Long id,
-            @Valid @RequestBody FavoriteRequest request,
+            @Valid @RequestBody FavoriteUpdateRequest request,
             @AuthenticationPrincipal SecurityUserDetails userDetails) {
 
         Long userId = userDetails.getUserId();
         // FavoriteService 내부에서 즐겨찾기가 본인 것인지 확인합니다.
         // 다른 사람의 즐겨찾기를 수정하려 하면 FAVORITE_ACCESS_DENIED(403) 예외가 발생합니다.
-        return ApiResponse.ok(favoriteService.update(id, request, userId));
+        return ApiResponse.ok(favoriteService.updatePartial(id, request, userId));
     }
 
     @Operation(summary = "즐겨찾기 삭제")
