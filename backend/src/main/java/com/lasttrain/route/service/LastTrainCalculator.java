@@ -202,18 +202,13 @@ public class LastTrainCalculator {
 
                 if (busCityCode == 1000) {
                     // 서울시 버스 - TransitCacheService를 통해 조회 (캐시 적용)
-                    // lane[0] 하위에서 필드 읽기 (null 체크 포함)
-                    String stId = (lane.isArray() && !lane.isEmpty())
-                        ? lane.get(0).path("localStationID").asText("")
-                        : subPath.path("localStationID").asText("");
+                    // 서울버스 API는 busRouteId(busLocalBlID)를 파라미터로 사용
                     String busRouteId = (lane.isArray() && !lane.isEmpty())
                         ? lane.get(0).path("busLocalBlID").asText("")
                         : subPath.path("busLocalBlID").asText("");
-                    String ord = (lane.isArray() && !lane.isEmpty())
-                        ? lane.get(0).path("staOrder").asText("")
-                        : subPath.path("staOrder").asText("");
-                    if (!stId.isEmpty() && !busRouteId.isEmpty() && !ord.isEmpty()) {
-                        String lastTimeStr = transitCacheService.getSeoulBusLastTime(stId, busRouteId, ord, dayType);
+
+                    if (!busRouteId.isEmpty()) {
+                        String lastTimeStr = transitCacheService.getSeoulBusLastTime(busRouteId, dayType);
                         lastTransitTime = parseLastTime(lastTimeStr, now.toLocalDate());
                     }
                 } else if (busCityCode == 1030 || busCityCode == 1040 || busCityCode == 1050 || busCityCode == 1140 || busCityCode == 1160 || busCityCode == 2000 || busCityCode == 3000) {

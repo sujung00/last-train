@@ -243,13 +243,11 @@ public class TransitCacheService {
      *   → log.warn("서울 버스 API 실패, DB Fallback 사용: stId=124000414...")
      *   → 반환: "23:42"
      *
-     * @param stId 정류소 ID (Seoul Bus API)
-     * @param busRouteId 노선 ID (Seoul Bus API)
-     * @param ord 순번 ("1" 또는 "2", 왕복 노선 구분)
+     * @param busRouteId 노선 ID (Seoul Bus API - busLocalBlID)
      * @param dayType 요일 타입 ("1", "2", "3")
      * @return 막차 시간 (HH:mm 형식) 또는 null (API 실패 + DB 없음)
      */
-    public String getSeoulBusLastTime(String stId, String busRouteId, String ord, String dayType) {
+    public String getSeoulBusLastTime(String busRouteId, String dayType) {
         try {
             // ── API 응답 시간 측정 시작 ──
             long apiStartTime = System.currentTimeMillis();
@@ -257,12 +255,12 @@ public class TransitCacheService {
             // dayType 변환
             String convertedDayType = convertDayType(dayType);
 
-            // 캐시 키 생성: "정류소ID:노선ID:순번"
-            String cacheKey = stId + ":" + busRouteId + ":" + ord;
+            // 캐시 키 생성: "노선ID"
+            String cacheKey = busRouteId;
 
             // 1단계: 외부 API 호출 (실시간 데이터 획득)
             log.debug("서울 버스 실시간 데이터 요청: cacheKey={}, dayType={}. 서울 버스 API 호출...", cacheKey, convertedDayType);
-            LocalDateTime lastBusTime = seoulBusArrivalClient.getLastBusTime(stId, busRouteId, ord);
+            LocalDateTime lastBusTime = seoulBusArrivalClient.getLastBusTime(busRouteId, dayType);
 
             // ── API 응답 시간 측정 종료 및 기록 ──
             long apiEndTime = System.currentTimeMillis();
@@ -287,7 +285,7 @@ public class TransitCacheService {
             }
 
             // 3단계: API 실패 시 DB에서 마지막 저장값 조회 (Fallback)
-            log.warn("서울 버스 API 실패, DB Fallback 사용: stId={}", stId);
+            log.warn("서울 버스 API 실패, DB Fallback 사용: cacheKey={}", cacheKey);
 
             // ── Fallback 응답 시간 측정 시작 ──
             long fallbackStartTime = System.currentTimeMillis();
@@ -321,18 +319,17 @@ public class TransitCacheService {
             // ── 성과 측정: Fallback 미스 카운트 ──
             fallbackMissCount.incrementAndGet();
 
-            log.warn("서울 버스 API 실패 + DB 데이터 없음: stId={}, busRouteId={}, ord={}",
-                     stId, busRouteId, ord);
+            log.warn("서울 버스 API 실패 + DB 데이터 없음: cacheKey={}, dayType={}",
+                     busRouteId, dayType);
             return null;
 
         } catch (Exception e) {
-            log.error("서울버스 막차 조회 실패: stId={}, busRouteId={}, ord={}, dayType={}",
-                     stId, busRouteId, ord, dayType, e);
+            log.error("서울버스 막차 조회 실패: busRouteId={}, dayType={}", busRouteId, dayType, e);
 
             // 예외 발생 시에도 DB Fallback 시도
             try {
                 String convertedDayType = convertDayType(dayType);
-                String cacheKey = stId + ":" + busRouteId + ":" + ord;
+                String cacheKey = busRouteId;
                 Optional<LastTransitSchedule> fallback = lastTransitScheduleRepository
                     .findByTransitTypeAndCacheKeyAndDayType(
                         "BUS_SEOUL",
@@ -340,11 +337,11 @@ public class TransitCacheService {
                         convertedDayType
                     );
                 if (fallback.isPresent()) {
-                    log.debug("예외 발생 시 DB Fallback 반환: stId={}", stId);
+                    log.debug("예외 발생 시 DB Fallback 반환: cacheKey={}", cacheKey);
                     return fallback.get().getLastTime();
                 }
             } catch (Exception fallbackException) {
-                log.error("DB Fallback 조회도 실패: stId={}, busRouteId={}, ord={}", stId, busRouteId, ord, fallbackException);
+                log.error("DB Fallback 조회도 실패: busRouteId={}, dayType={}", busRouteId, dayType, fallbackException);
             }
 
             return null;

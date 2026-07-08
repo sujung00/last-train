@@ -166,18 +166,10 @@ public class TransitRefreshScheduler {
 
                     if ("BUS_SEOUL".equals(transitType)) {
                         // ── 서울 버스 ────────────────────────────────────────────────────────
-                        // cacheKey = "정류소ID:노선ID:순번" 형식
-                        // 예) "136:100100578:29"
-                        String[] parts = cacheKey.split(":");
-                        if (parts.length == 3) {
-                            String stId = parts[0];
-                            String busRouteId = parts[1];
-                            String ord = parts[2];
-
-                            lastBusTime = seoulBusArrivalClient.getLastBusTime(stId, busRouteId, ord);
-                        } else {
-                            log.warn("[TransitRefreshScheduler] 서울버스 cacheKey 형식 오류: {}", cacheKey);
-                        }
+                        // cacheKey = busRouteId (서울버스 로컬 ID)
+                        // 예) "100100578"
+                        String busRouteId = cacheKey;
+                        lastBusTime = seoulBusArrivalClient.getLastBusTime(busRouteId, dayType);
 
                     } else if ("BUS_GYEONGGI".equals(transitType)) {
                         // ── 경기 버스 ────────────────────────────────────────────────────────
