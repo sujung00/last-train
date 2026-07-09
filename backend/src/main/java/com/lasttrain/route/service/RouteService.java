@@ -94,11 +94,36 @@ public class RouteService {
 
         // ── 5단계: departureDeadline 내림차순 정렬 후 응답 조립 ────────────────────
         // "늦은 막차 우선"으로 보여주기 위해 마감 시각이 늦은 경로부터 정렬합니다.
+        // 자정 넘긴 시간(00:xx ~ 03:xx)을 올바르게 처리하기 위해 +24시간 보정
         List<RouteResponse.RouteItem> sortedRoutes = routes.stream()
-                .sorted(Comparator.comparing(RouteResponse.RouteItem::departureDeadline).reversed())
+                .sorted(Comparator.comparing((RouteResponse.RouteItem route) -> toSortableMinutes(route.departureDeadline())).reversed())
                 .toList();
 
         return new RouteResponse(originName, destName, now.toLocalDate(), dayType, sortedRoutes);
+    }
+
+    /**
+     * "HH:mm" 형식의 시간을 정렬 가능한 분 단위로 변환합니다.
+     *
+     * 자정 넘긴 시간(00:00 ~ 03:59)을 다음날로 간주하기 위해 +24시간 보정합니다.
+     *   예: "01:01" (hour=1) → hour+24=25 → 25*60+1 = 1501분 (25:01 기준)
+     *   예: "23:53" (hour=23) → 23*60+53 = 1433분 (23:53 기준)
+     *   비교: 1501 > 1433 이므로 "01:01"이 "23:53"보다 늦음 ✓
+     *
+     * @param time "HH:mm" 형식의 시간 (예: "23:11")
+     * @return 정렬 가능한 분 단위 값 (hour < 4이면 +24시간 적용)
+     */
+    private int toSortableMinutes(String time) {
+        String[] parts = time.split(":");
+        int hour = Integer.parseInt(parts[0]);
+        int minute = Integer.parseInt(parts[1]);
+
+        // 자정 넘긴 시간(00:00 ~ 03:59)을 다음날로 보정
+        if (hour < 4) {
+            hour += 24;
+        }
+
+        return hour * 60 + minute;
     }
 
     /**

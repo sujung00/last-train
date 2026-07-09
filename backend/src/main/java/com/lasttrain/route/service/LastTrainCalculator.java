@@ -2,6 +2,7 @@ package com.lasttrain.route.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lasttrain.bus.external.GyeonggiStationInfo;
 import com.lasttrain.route.dto.RouteResponse;
 import com.lasttrain.route.dto.TransferDto;
 import com.lasttrain.transit.service.TransitCacheService;
@@ -42,6 +43,7 @@ public class LastTrainCalculator {
 
     // 막차 시각을 조회하고 캐싱하는 서비스
     // 외부 API 호출 → DB 저장 → 다음 조회 시 캐시 사용
+    // 정류장 목록 Redis 캐싱도 포함
     private final TransitCacheService transitCacheService;
 
     // Spring Boot가 자동 구성하는 ObjectMapper를 주입받습니다.
@@ -212,15 +214,61 @@ public class LastTrainCalculator {
                         lastTransitTime = parseLastTime(lastTimeStr, now.toLocalDate());
                     }
                 } else if (busCityCode == 1030 || busCityCode == 1040 || busCityCode == 1050 || busCityCode == 1140 || busCityCode == 1160 || busCityCode == 2000 || busCityCode == 3000) {
-                    // 경기도/인천 버스 (1030: 마을, 1040: 마을, 1050: 시내, 1140: 직행좌석, 1160: 시내, 2000: 직행좌석, 3000: 인천) - TransitCacheService를 통해 조회 (캐시 적용)
-                    // lane[0] 하위에서 필드 읽기 (null 체크 포함)
-                    // 경기버스 API는 경기버스 로컬 ID(busLocalBlID)를 파라미터로 사용
+                    // 경기도/인천 버스 (1030: 마을, 1040: 마을, 1050: 시내, 1140: 직행좌석, 1160: 시내, 2000: 직행좌석, 3000: 인천)
+                    // 개선된 로직: 기점 막차 + 정류장까지 소요시간 계산
                     String routeId = (lane.isArray() && !lane.isEmpty())
                         ? lane.get(0).path("busLocalBlID").asText("")
                         : subPath.path("busLocalBlID").asText("");
+
                     if (!routeId.isEmpty()) {
+                        // Step 1: 기점 막차 시각 조회
                         String lastTimeStr = transitCacheService.getGyeonggiBusLastTime(routeId, dayType);
                         lastTransitTime = parseLastTime(lastTimeStr, now.toLocalDate());
+
+                        if (lastTransitTime != null) {
+                            // Step 2: 출발 정류장의 localStationID 추출
+                            JsonNode passStopList = subPath.path("passStopList");
+                            JsonNode stations = passStopList.path("stations");
+
+                            if (stations.isArray() && !stations.isEmpty()) {
+                                String departureLocalStationId = stations.get(0).path("localStationID").asText("");
+
+                                if (!departureLocalStationId.isEmpty()) {
+                                    // Step 3: 정류장 목록 조회 (Redis 캐싱)
+                                    List<GyeonggiStationInfo> stationList = transitCacheService.getGyeonggiStationList(routeId);
+
+                                    if (!stationList.isEmpty()) {
+                                        // Step 4: 출발 정류장의 stationSeq 찾기
+                                        int departureSeq = -1;
+                                        for (GyeonggiStationInfo station : stationList) {
+                                            if (station.stationId().equals(departureLocalStationId)) {
+                                                departureSeq = station.stationSeq();
+                                                break;
+                                            }
+                                        }
+
+                                        if (departureSeq > 0) {
+                                            // Step 5: 기점(seq=1)부터 출발지까지 정류장 개수 계산
+                                            int stationCount = departureSeq - 1;
+
+                                            // Step 6: busCityCode별 정류장당 소요시간으로 계산 (분)
+                                            int travelTimeMinutes = calculateTravelTimeMinutes(busCityCode, stationCount);
+
+                                            // Step 7: 기점 막차 + 소요시간 = 출발지 막차 시각
+                                            lastTransitTime = lastTransitTime.plusMinutes(travelTimeMinutes);
+
+                                            log.debug("[경기버스 막차 계산] routeId={}, busCityCode={}, departureLocalStationId={}, departureSeq={}, stationCount={}, travelTime={}min, baseLastTime={}",
+                                                    routeId, busCityCode, departureLocalStationId, departureSeq, stationCount, travelTimeMinutes, lastTimeStr);
+                                        } else {
+                                            log.debug("[경기버스 정류장 찾기 실패] routeId={}, departureLocalStationId={} → 기점 막차로 폴백",
+                                                    routeId, departureLocalStationId);
+                                        }
+                                    } else {
+                                        log.debug("[경기버스 정류장 목록 비어있음] routeId={} → 기점 막차로 폴백", routeId);
+                                    }
+                                }
+                            }
+                        }
                     }
                 } else if (busCityCode != 0) {
                     // 지원되지 않는 busCityCode는 경고 로그
@@ -453,6 +501,39 @@ public class LastTrainCalculator {
      */
     private String formatTime(LocalDateTime dateTime) {
         return String.format("%02d:%02d", dateTime.getHour(), dateTime.getMinute());
+    }
+
+    /**
+     * busCityCode별 정류장당 소요시간을 기반으로 총 소요시간(분)을 계산합니다.
+     *
+     * 정류장당 소요시간 기준:
+     *   - 1140, 2000 (광역/직행좌석): 정류장당 2분
+     *   - 1000, 1050 (일반 시내): 정류장당 3분
+     *   - 1030, 1040, 1160 (마을/기타): 정류장당 2분
+     *
+     * @param busCityCode 버스 도시 코드
+     * @param stationCount 기점부터 출발지까지의 정류장 개수
+     * @return 소요시간 (분)
+     */
+    private int calculateTravelTimeMinutes(int busCityCode, int stationCount) {
+        int minutesPerStation;
+
+        if (busCityCode == 1140 || busCityCode == 2000) {
+            // 광역/직행좌석: 정류장당 2분
+            minutesPerStation = 2;
+        } else if (busCityCode == 1000 || busCityCode == 1050) {
+            // 일반 시내: 정류장당 3분
+            minutesPerStation = 3;
+        } else if (busCityCode == 1030 || busCityCode == 1040 || busCityCode == 1160) {
+            // 마을/기타: 정류장당 2분
+            minutesPerStation = 2;
+        } else {
+            // 기본값: 정류장당 3분
+            minutesPerStation = 3;
+        }
+
+        int travelMinutes = stationCount * minutesPerStation;
+        return Math.max(travelMinutes, 0);
     }
 
     /**

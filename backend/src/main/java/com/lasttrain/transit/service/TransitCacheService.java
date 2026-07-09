@@ -3,19 +3,25 @@ package com.lasttrain.transit.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lasttrain.bus.external.GyeonggiBusRouteClient;
+import com.lasttrain.bus.external.GyeonggiStationInfo;
 import com.lasttrain.bus.external.SeoulBusArrivalClient;
 import com.lasttrain.route.external.OdsayClient;
 import com.lasttrain.transit.domain.LastTransitSchedule;
 import com.lasttrain.transit.repository.LastTransitScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
@@ -65,6 +71,9 @@ public class TransitCacheService {
 
     // DB 캐시 저장/갱신 담당
     private final TransitCacheWriter transitCacheWriter;
+
+    // Redis 캐싱 (정류장 목록)
+    private final StringRedisTemplate stringRedisTemplate;
 
     // ── 성과 측정 카운터 ──────────────────────────────────────────────────────
     // API 호출 결과 통계
@@ -613,6 +622,87 @@ public class TransitCacheService {
             case "3" -> "SUNDAY";
             default -> throw new IllegalArgumentException("유효하지 않은 dayType: " + dayType);
         };
+    }
+
+    /**
+     * 경기도 버스 정류장 목록 조회 (Redis 캐싱)
+     *
+     * 캐시 전략:
+     *   - 캐시 키: "GYEONGGI_STATIONS:{routeId}"
+     *   - TTL: 24시간 (정류장 목록은 자주 변경되지 않음)
+     *   - 캐시 미스 시: API 호출 후 JSON 직렬화해서 Redis에 저장
+     *   - 캐시 히트 시: Redis에서 직접 반환
+     *
+     * API 응답 시간이 40초로 길기 때문에 Redis 캐싱으로 성능 개선:
+     *   - 캐시 히트 시: <100ms (Redis 조회)
+     *   - 캐시 미스 시: ~40초 (API 호출)
+     *
+     * 조회 흐름:
+     *   1. Redis에서 캐시 조회
+     *   2. 캐시 히트 → JSON 파싱해서 List<GyeonggiStationInfo> 반환
+     *   3. 캐시 미스 → GyeonggiBusRouteClient API 호출
+     *   4. API 성공 → JSON 직렬화해서 Redis에 저장 (TTL 24시간) → 반환
+     *   5. API 실패 → 빈 리스트 반환
+     *
+     * @param routeId 경기버스 노선 ID (예: "200000001")
+     * @return 정류장 목록, 조회 실패 시 빈 리스트
+     */
+    public List<GyeonggiStationInfo> getGyeonggiStationList(String routeId) {
+        try {
+            // 캐시 키 생성
+            String cacheKey = "GYEONGGI_STATIONS:" + routeId;
+
+            // Step 1: Redis 캐시 조회
+            String cachedJson = stringRedisTemplate.opsForValue().get(cacheKey);
+
+            if (cachedJson != null && !cachedJson.isBlank()) {
+                try {
+                    // 캐시 히트: JSON 파싱해서 반환
+                    List<GyeonggiStationInfo> stationList = Arrays.asList(
+                        objectMapper.readValue(cachedJson, GyeonggiStationInfo[].class)
+                    );
+                    log.debug("[경기버스 정류장 캐시] 히트: routeId={}, count={}", routeId, stationList.size());
+                    return stationList;
+                } catch (Exception parseError) {
+                    log.warn("[경기버스 정류장 캐시] JSON 파싱 실패: routeId={}, error={}", routeId, parseError.getMessage());
+                    // 파싱 실패 시 캐시 제거 후 API 호출
+                    stringRedisTemplate.delete(cacheKey);
+                }
+            }
+
+            // Step 2: 캐시 미스 → API 호출
+            log.debug("[경기버스 정류장 캐시] 미스: routeId={}, API 호출...", routeId);
+            List<GyeonggiStationInfo> stationList = gyeonggiBusRouteClient.getBusRouteStationList(routeId);
+
+            // Step 3: API 성공 시 Redis에 저장
+            if (!stationList.isEmpty()) {
+                try {
+                    // List<GyeonggiStationInfo>를 JSON으로 직렬화
+                    String jsonValue = objectMapper.writeValueAsString(stationList);
+
+                    // Redis에 저장 (TTL: 24시간)
+                    stringRedisTemplate.opsForValue().set(
+                        cacheKey,
+                        jsonValue,
+                        24,
+                        TimeUnit.HOURS
+                    );
+
+                    log.debug("[경기버스 정류장 캐시] 저장 완료: routeId={}, count={}", routeId, stationList.size());
+                } catch (Exception cacheError) {
+                    log.warn("[경기버스 정류장 캐시] Redis 저장 실패: routeId={}, error={}", routeId, cacheError.getMessage());
+                    // 캐시 저장 실패해도 API 조회 결과는 반환
+                }
+            } else {
+                log.debug("[경기버스 정류장 API] 결과 없음: routeId={}", routeId);
+            }
+
+            return stationList;
+
+        } catch (Exception e) {
+            log.error("[경기버스 정류장 조회] 전체 오류: routeId={}, error={}", routeId, e.getMessage(), e);
+            return new ArrayList<>();
+        }
     }
 
     // ── 성과 측정 메서드 (TransitAdminController에서 호출) ────────────────────────

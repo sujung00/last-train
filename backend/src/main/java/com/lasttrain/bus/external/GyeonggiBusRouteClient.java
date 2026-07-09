@@ -15,6 +15,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 경기도 버스 노선 정보 외부 API 클라이언트
@@ -141,6 +143,90 @@ public class GyeonggiBusRouteClient {
             log.error("경기도 버스 응답 처리 중 에러: routeId={}, error={}",
                     routeId, e.getMessage(), e);
             return null;
+        }
+    }
+
+    /**
+     * 경기도 버스 노선의 정류장 목록을 조회한다.
+     *
+     * 노선 상 순서대로 정렬된 정류장 정보를 반환한다.
+     *
+     * @param routeId 버스 노선 ID (예: "200000001")
+     * @return 정류장 목록 (stationSeq 순서로 정렬), 조회 실패 시 빈 리스트
+     *
+     * 예시: getBusRouteStationList("200000001")
+     *       → [
+     *            GyeonggiStationInfo(1, "1001", "출발지역터미널"),
+     *            GyeonggiStationInfo(2, "1002", "중간역1"),
+     *            GyeonggiStationInfo(3, "1003", "도착지역터미널")
+     *          ]
+     */
+    public List<GyeonggiStationInfo> getBusRouteStationList(String routeId) {
+        try {
+            // Step 1: API 호출 URL 구성 (v2 버전)
+            String url = String.format(
+                    "https://apis.data.go.kr/6410000/busrouteservice/v2/getBusRouteStationListv2?serviceKey=%s&routeId=%s&format=json",
+                    serviceKey, routeId
+            );
+            URI uri = URI.create(url);
+
+            log.debug("경기도 버스 정류장 목록 API 호출: routeId={}", routeId);
+
+            // Step 2: API 호출 (응답을 String으로 받음, JSON 형식)
+            String response = restTemplate.getForObject(uri, String.class);
+
+            if (response == null || response.isBlank()) {
+                log.warn("경기도 버스 정류장 목록 API 응답이 비어있음: routeId={}", routeId);
+                return new ArrayList<>();
+            }
+
+            // Step 3: JSON 응답 파싱
+            // API 응답 구조: { "response": { "msgBody": { "busRouteStationList": [ {...}, {...} ] } } }
+            JsonNode root = objectMapper.readTree(response);
+
+            // 중첩된 구조를 따라가며 busRouteStationList 배열 찾기
+            JsonNode stationList = root
+                    .path("response")
+                    .path("msgBody")
+                    .path("busRouteStationList");
+
+            if (stationList.isMissingNode() || !stationList.isArray()) {
+                log.warn("응답에서 busRouteStationList 데이터를 찾을 수 없음: routeId={}", routeId);
+                return new ArrayList<>();
+            }
+
+            // Step 4: busRouteStationList 배열을 GyeonggiStationInfo 리스트로 변환
+            List<GyeonggiStationInfo> stations = new ArrayList<>();
+
+            for (JsonNode item : stationList) {
+                try {
+                    int stationSeq = item.path("stationSeq").asInt(-1);
+                    String stationId = item.path("stationId").asText(null);
+                    String stationName = item.path("stationName").asText(null);
+
+                    // 필수 필드 검증
+                    if (stationId != null && stationName != null && stationSeq >= 0) {
+                        stations.add(new GyeonggiStationInfo(stationSeq, stationId, stationName));
+                    } else {
+                        log.warn("정류장 정보가 불완전함: routeId={}, stationSeq={}, stationId={}, stationName={}",
+                                routeId, stationSeq, stationId, stationName);
+                    }
+                } catch (Exception e) {
+                    log.warn("정류장 항목 파싱 실패: routeId={}, error={}", routeId, e.getMessage());
+                }
+            }
+
+            log.debug("정류장 목록 조회 성공: routeId={}, count={}", routeId, stations.size());
+            return stations;
+
+        } catch (RestClientException e) {
+            log.error("경기도 버스 정류장 목록 API 호출 실패: routeId={}, error={}",
+                    routeId, e.getMessage(), e);
+            return new ArrayList<>();
+        } catch (Exception e) {
+            log.error("경기도 버스 정류장 목록 응답 처리 중 에러: routeId={}, error={}",
+                    routeId, e.getMessage(), e);
+            return new ArrayList<>();
         }
     }
 }
