@@ -38,7 +38,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#1a1a2e] flex items-center justify-center px-4">
+    <div className="h-full bg-[#1a1a2e] flex items-center justify-center px-4 relative">
       <div className="w-full max-w-md">
         {/* 타이틀 */}
         <div className="text-center mb-12">

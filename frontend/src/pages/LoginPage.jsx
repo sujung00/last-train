@@ -20,6 +20,7 @@ export default function LoginPage() {
 
       localStorage.setItem('accessToken', accessToken)
       localStorage.setItem('refreshToken', refreshToken)
+      localStorage.setItem('userEmail', email)
 
       navigate('/')
     } catch (err) {

@@ -4,14 +4,14 @@ import { useState } from 'react'
 /**
  * 하단 탭바 컴포넌트
  *
- * 탭바가 표시되는 페이지: /, /favorites
+ * 탭바가 표시되는 페이지: /, /favorites, /mypage
  * 탭바가 숨겨지는 페이지: /result, /login, /signup, /auth/kakao/callback
  *
  * 기능:
  * - useLocation()으로 현재 라우트 감지
  * - 로그인 상태에 따라 세 번째 탭 변경:
  *   - 비로그인: "로그인" → /login
- *   - 로그인: "마이" → /mypage (준비 중)
+ *   - 로그인: "마이" → /mypage
  * - 현재 페이지에 active 스타일 적용
  */
 export default function BottomTabBar() {
@@ -25,7 +25,7 @@ export default function BottomTabBar() {
   })
 
   // 탭바가 필요한 페이지 확인
-  const shouldShowTabBar = ['/', '/favorites'].includes(location.pathname)
+  const shouldShowTabBar = ['/', '/favorites', '/mypage'].includes(location.pathname)
 
   if (!shouldShowTabBar) return null
 
