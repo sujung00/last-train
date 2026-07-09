@@ -94,7 +94,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded transition disabled:bg-gray-600 disabled:cursor-not-allowed"
+            className="w-full bg-[#6366f1] hover:bg-[#4338ca] text-white font-bold py-3 rounded transition disabled:bg-gray-600 disabled:cursor-not-allowed"
           >
             {loading ? '로그인 중...' : '로그인'}
           </button>
@@ -119,7 +119,7 @@ export default function LoginPage() {
         {/* 회원가입 링크 */}
         <div className="text-center mt-6">
           <span className="text-gray-400">계정이 없으신가요? </span>
-          <Link to="/signup" className="text-purple-400 hover:text-purple-300 font-medium transition">
+          <Link to="/signup" className="text-[#6366f1] hover:text-[#a5b4fc] font-medium transition">
             회원가입
           </Link>
         </div>

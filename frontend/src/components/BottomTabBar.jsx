@@ -49,9 +49,10 @@ export default function BottomTabBar() {
             onClick={() => navigate(tab.path)}
             className={`flex-1 flex flex-col items-center justify-center h-full gap-1 transition ${
               isActive
-                ? 'text-purple-400 border-t-2 border-purple-600'
+                ? 'border-t-2 border-t-[#6366f1]'
                 : 'text-gray-400 hover:text-gray-300'
             }`}
+            style={isActive ? { color: '#6366f1' } : {}}
           >
             <span className="text-lg">{tab.emoji}</span>
             <span className="text-xs font-medium">{tab.label}</span>

@@ -59,7 +59,7 @@ export default function EmojiSelectorModal({ onSelect, onClose, destination }) {
               key={emoji}
               onClick={() => handleSelectEmoji(emoji)}
               disabled={loading}
-              className="text-3xl p-3 bg-gray-800 hover:bg-gray-700 disabled:bg-gray-600 rounded-lg transition border border-gray-700 hover:border-purple-600 disabled:cursor-not-allowed"
+              className="text-3xl p-3 bg-gray-800 hover:bg-gray-700 disabled:bg-gray-600 rounded-lg transition border border-gray-700 hover:border-[#6366f1] disabled:cursor-not-allowed"
             >
               {emoji}
             </button>

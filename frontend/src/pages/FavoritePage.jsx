@@ -330,7 +330,7 @@ export default function FavoritePage() {
           </p>
           <button
             onClick={handleLoginClick}
-            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition"
+            className="px-6 py-3 bg-[#6366f1] hover:bg-[#4338ca] text-white rounded-lg font-medium transition"
           >
             로그인하기
           </button>
@@ -348,7 +348,7 @@ export default function FavoritePage() {
           <button
             onClick={handleAddFavorite}
             disabled={adding}
-            className="px-3 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition disabled:bg-gray-600 disabled:cursor-not-allowed"
+            className="px-3 py-2 text-sm bg-[#6366f1] hover:bg-[#4338ca] text-white rounded transition disabled:bg-gray-600 disabled:cursor-not-allowed"
           >
             {adding ? '추가 중...' : '+ 추가'}
           </button>
@@ -360,7 +360,7 @@ export default function FavoritePage() {
         {/* 로딩 상태 */}
         {loading && (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border border-gray-700 border-t-purple-500"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border border-gray-700 border-t-[#6366f1]"></div>
             <span className="text-gray-400 ml-3">즐겨찾기를 불러오는 중...</span>
           </div>
         )}
@@ -406,7 +406,7 @@ export default function FavoritePage() {
                   <button
                     onClick={() => handleViewFavorite(favorite)}
                     disabled={querying}
-                    className="flex-1 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded transition font-medium disabled:bg-gray-600 disabled:cursor-not-allowed"
+                    className="flex-1 py-2 bg-[#6366f1] hover:bg-[#4338ca] text-white text-sm rounded transition font-medium disabled:bg-gray-600 disabled:cursor-not-allowed"
                   >
                     {querying ? '조회 중...' : '조회 →'}
                   </button>
@@ -441,7 +441,7 @@ export default function FavoritePage() {
             <button
               onClick={handleAddFavoriteEmpty}
               disabled={adding}
-              className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition disabled:bg-gray-600 disabled:cursor-not-allowed"
+              className="px-6 py-3 bg-[#6366f1] hover:bg-[#4338ca] text-white rounded-lg font-medium transition disabled:bg-gray-600 disabled:cursor-not-allowed"
             >
               {adding ? '추가 중...' : '+ 목적지 추가'}
             </button>
@@ -501,7 +501,7 @@ export default function FavoritePage() {
               <button
                 onClick={handleSaveFavorite}
                 disabled={saving || deleting}
-                className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded font-medium transition disabled:bg-gray-600 disabled:cursor-not-allowed"
+                className="flex-1 py-3 bg-[#6366f1] hover:bg-[#4338ca] text-white rounded font-medium transition disabled:bg-gray-600 disabled:cursor-not-allowed"
               >
                 {saving ? '저장 중...' : '저장'}
               </button>

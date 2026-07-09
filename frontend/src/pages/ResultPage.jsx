@@ -211,7 +211,7 @@ export default function ResultPage() {
         <div className="mb-6 bg-gray-800 rounded-lg p-4 border border-gray-700">
           <div className="text-gray-400 text-xs mb-1">경로</div>
           <div className="text-white font-bold text-lg">
-            {origin} <span className="text-purple-400">→</span> {destination}
+            {origin} <span className="text-[#6366f1]">→</span> {destination}
           </div>
           <div className="text-gray-400 text-xs mt-2">
             {date} ({dayType === 'WEEKDAY' ? '평일' : dayType === 'SAT' ? '토요일' : '일요일'})
@@ -219,12 +219,17 @@ export default function ResultPage() {
         </div>
 
         {/* 막차까지 남은 시간 배너 (AC-008, FR-011) */}
-        <div className="mb-8 bg-gradient-to-r from-purple-900 to-purple-800 rounded-lg p-6 border border-purple-700">
+        <div className="mb-8 bg-gradient-to-r from-[#312e81] to-[#3f3b7f] rounded-lg p-6 border border-[#4338ca]">
           <div className="text-center">
-            <div className="text-purple-300 text-sm font-medium mb-2">막차까지 남은 시간</div>
+            <div className="text-[#a5b4fc] text-sm font-medium mb-2">막차까지 남은 시간</div>
             <div className="text-4xl font-bold text-white mb-2">{minutesLeft}분</div>
-            <div className="text-purple-200 text-sm">{primaryMessage}</div>
+            <div className="text-[#c7d2fe] text-sm">{primaryMessage}</div>
           </div>
+        </div>
+
+        {/* 막차 시간 안내 배너 */}
+        <div className="mb-8 text-sm text-blue-200 bg-blue-900 bg-opacity-30 px-4 py-3 rounded border border-blue-700">
+          📢 막차 시간은 기점 기준 예측값으로 실제와 다를 수 있어요. 5~10분 여유를 두고 이동하세요.
         </div>
 
         {/* 경로 카드 목록 (FR-010) */}
@@ -245,7 +250,7 @@ export default function ResultPage() {
             <div className="text-gray-400 text-lg">조회된 경로가 없어요</div>
             <button
               onClick={() => navigate('/')}
-              className="mt-4 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition"
+              className="mt-4 px-6 py-3 bg-[#6366f1] hover:bg-[#4338ca] text-white rounded-lg font-medium transition"
             >
               다시 검색하기
             </button>
@@ -270,7 +275,7 @@ export default function ResultPage() {
                   ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                   : isFavorited
                   ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                  : 'bg-purple-600 hover:bg-purple-700 text-white'
+                  : 'bg-[#6366f1] hover:bg-[#4338ca] text-white'
               }`}
             >
               {isSavingFavorite
@@ -319,7 +324,7 @@ function RouteCard({ route, index, isRecommended }) {
     <div
       className={`rounded-lg p-4 border transition ${
         isRecommended
-          ? 'bg-purple-900 bg-opacity-20 border-purple-600 border-opacity-50'
+          ? 'bg-[#312e81] bg-opacity-20 border-[#6366f1] border-opacity-50'
           : 'bg-gray-800 border-gray-700 hover:border-gray-600'
       }`}
     >
@@ -327,7 +332,7 @@ function RouteCard({ route, index, isRecommended }) {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           {isRecommended && (
-            <span className="inline-block px-2 py-1 bg-purple-600 text-white text-xs font-bold rounded">
+            <span className="inline-block px-2 py-1 bg-[#6366f1] text-white text-xs font-bold rounded">
               추천
             </span>
           )}
@@ -366,7 +371,7 @@ function RouteCard({ route, index, isRecommended }) {
       <div className="mt-3 pt-3 border-t border-gray-700 space-y-2">
         {minutesLeft > 0 && (
           <div className="text-gray-300 text-sm">
-            <span className="text-purple-400 font-medium">{minutesLeft}분</span> 내에 탑승 필요
+            <span className="text-[#6366f1] font-medium">{minutesLeft}분</span> 내에 탑승 필요
           </div>
         )}
         {message && (

@@ -198,7 +198,7 @@ export default function PlaceSearchModal({ mode, onSelect, onClose }) {
           {/* 로딩 상태 */}
           {loading && (
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border border-gray-700 border-t-purple-500"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border border-gray-700 border-t-[#6366f1]"></div>
             </div>
           )}
 
