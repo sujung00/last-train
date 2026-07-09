@@ -29,7 +29,7 @@ public interface SubscriptionRepository extends JpaRepository<NotificationSubscr
      * @param user 조회할 사용자
      * @return 해당 사용자의 구독 목록 (없으면 빈 리스트)
      */
-    List<NotificationSubscription> findAllByUser(User user);
+    List<NotificationSubscription> findByUser(User user);
 
     /**
      * 특정 사용자와 브라우저 endpoint가 모두 일치하는 구독을 찾습니다.

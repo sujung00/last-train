@@ -51,6 +51,10 @@ public class NotificationSchedule {
     @Column(name = "destination", nullable = false, length = 100)
     private String destination;
 
+    // 막차 몇 분 전에 알림을 받을지 (10분, 20분, 30분 등)
+    @Column(name = "notify_minutes_before", nullable = false)
+    private Integer notifyMinutesBefore;
+
     /**
      * 막차 탑승 마감 시각입니다.
      *
@@ -85,10 +89,12 @@ public class NotificationSchedule {
     @Builder
     public NotificationSchedule(NotificationSubscription subscription,
                                  String origin, String destination,
+                                 Integer notifyMinutesBefore,
                                  LocalDateTime lastBoardTime) {
-        this.subscription  = subscription;
-        this.origin        = origin;
-        this.destination   = destination;
-        this.lastBoardTime = lastBoardTime;
+        this.subscription          = subscription;
+        this.origin                = origin;
+        this.destination           = destination;
+        this.notifyMinutesBefore   = notifyMinutesBefore;
+        this.lastBoardTime         = lastBoardTime;
     }
 }

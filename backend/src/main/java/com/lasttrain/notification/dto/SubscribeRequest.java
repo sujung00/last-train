@@ -38,6 +38,10 @@ public record SubscribeRequest(
 
         @Schema(description = "막차 탑승 마감 시각 (자정 넘김 포함)", example = "2026-06-10T23:11:00")
         @NotNull(message = "막차 시각을 입력해주세요.")
-        LocalDateTime lastBoardTime
+        LocalDateTime lastBoardTime,
+
+        @Schema(description = "막차 몇 분 전에 알림을 받을지", example = "30")
+        @NotNull(message = "알림 시간을 입력해주세요.")
+        Integer notifyMinutesBefore
 
 ) {}

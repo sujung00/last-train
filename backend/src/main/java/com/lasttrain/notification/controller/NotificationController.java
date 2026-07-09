@@ -2,6 +2,7 @@ package com.lasttrain.notification.controller;
 
 import com.lasttrain.global.response.ApiResponse;
 import com.lasttrain.global.security.SecurityUserDetails;
+import com.lasttrain.notification.dto.NotificationScheduleResponse;
 import com.lasttrain.notification.dto.SubscribeRequest;
 import com.lasttrain.notification.service.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,6 +16,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Tag(name = "Notification", description = "웹 푸시 구독 관리")
 @SecurityRequirement(name = "BearerAuth") // 모든 엔드포인트에 JWT 인증 필요
 @RequestMapping("/api/v1/notifications")
@@ -24,6 +27,27 @@ public class NotificationController {
 
     // Spring이 NotificationService 빈을 자동으로 찾아서 주입해 줍니다.
     private final NotificationService notificationService;
+
+    @Operation(
+            summary = "알림 구독 목록 조회",
+            description = """
+                    현재 로그인한 사용자의 구독 목록을 조회합니다.
+
+                    - subscriptionId, origin, destination, lastBoardTime, notifyMinutesBefore 반환
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요")
+    })
+    @GetMapping
+    public ApiResponse<List<NotificationScheduleResponse>> getMySubscriptions(
+            @AuthenticationPrincipal SecurityUserDetails userDetails) {
+
+        Long userId = userDetails.getUserId();
+        List<NotificationScheduleResponse> subscriptions = notificationService.getMySubscriptions(userId);
+        return ApiResponse.ok(subscriptions);
+    }
 
     @Operation(
             summary = "알림 구독",

@@ -6,6 +6,7 @@ import com.lasttrain.global.exception.AppException;
 import com.lasttrain.global.exception.ErrorCode;
 import com.lasttrain.notification.domain.NotificationSchedule;
 import com.lasttrain.notification.domain.NotificationSubscription;
+import com.lasttrain.notification.dto.NotificationScheduleResponse;
 import com.lasttrain.notification.dto.SubscribeRequest;
 import com.lasttrain.notification.repository.ScheduleRepository;
 import com.lasttrain.notification.repository.SubscriptionRepository;
@@ -84,6 +85,7 @@ public class NotificationService {
                         .subscription(subscription)
                         .origin(request.origin())
                         .destination(request.destination())
+                        .notifyMinutesBefore(request.notifyMinutesBefore())
                         .lastBoardTime(request.lastBoardTime())
                         .build()
         );
@@ -93,6 +95,29 @@ public class NotificationService {
         // Redis ZSET에 "{scheduleId}:30" (30분 전), "{scheduleId}:10" (10분 전) 항목을 추가합니다.
         // Worker(@Scheduled)가 1초마다 Queue를 확인해서 시점이 된 항목을 꺼내 알림을 보냅니다.
         notificationQueueService.enqueue(schedule.getScheduleId(), schedule.getLastBoardTime());
+    }
+
+    /**
+     * 현재 로그인한 사용자의 알림 구독 목록을 조회합니다.
+     *
+     * @param userId 조회할 사용자의 ID
+     * @return 사용자의 알림 구독 목록 (구독별 경로 정보 포함)
+     */
+    @Transactional(readOnly = true)
+    public List<NotificationScheduleResponse> getMySubscriptions(Long userId) {
+        User user = findUser(userId);
+
+        // 사용자의 구독 목록 조회
+        List<NotificationSubscription> subscriptions =
+                subscriptionRepository.findByUser(user);
+
+        // 각 구독에 연결된 알림 예약 조회 후 응답 DTO로 변환
+        return subscriptions.stream()
+                .flatMap(subscription ->
+                        scheduleRepository.findAllBySubscription(subscription).stream()
+                                .map(NotificationScheduleResponse::from)
+                )
+                .toList();
     }
 
     /**
