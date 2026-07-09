@@ -5,9 +5,12 @@ import com.lasttrain.auth.dto.LoginRequest;
 import com.lasttrain.auth.dto.SignupRequest;
 import com.lasttrain.auth.dto.TokenResponse;
 import com.lasttrain.auth.repository.UserRepository;
+import com.lasttrain.favorite.repository.FavoriteRepository;
 import com.lasttrain.global.exception.AppException;
 import com.lasttrain.global.exception.ErrorCode;
 import com.lasttrain.global.security.TokenProvider;
+import com.lasttrain.notification.repository.ScheduleRepository;
+import com.lasttrain.notification.repository.SubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,6 +33,9 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final TokenProvider tokenProvider;
     private final StringRedisTemplate redisTemplate;
+    private final SubscriptionRepository subscriptionRepository;
+    private final ScheduleRepository scheduleRepository;
+    private final FavoriteRepository favoriteRepository;
 
     /**
      * 이메일로 회원가입합니다.
@@ -117,6 +123,36 @@ public class AuthService {
      */
     public void logout(Long userId) {
         redisTemplate.delete(RT_PREFIX + userId);
+    }
+
+    /**
+     * 계정을 삭제합니다. (연쇄 삭제)
+     *
+     * 삭제 순서 (외래키 제약 고려):
+     *   1. Redis에서 Refresh Token 삭제
+     *   2. 알림 구독(NotificationSubscription) 삭제
+     *   3. 알림 스케줄(NotificationSchedule) 삭제
+     *   4. 즐겨찾기(Favorite) 삭제
+     *   5. User 삭제
+     *
+     * @param userId 삭제할 사용자 ID
+     */
+    @Transactional
+    public void withdraw(Long userId) {
+        // 1단계: Redis에서 Refresh Token 삭제
+        redisTemplate.delete(RT_PREFIX + userId);
+
+        // 2단계: 알림 구독 삭제 (userId 기준)
+        subscriptionRepository.deleteByUserUserId(userId);
+
+        // 3단계: 알림 스케줄 삭제 (userId 기준)
+        scheduleRepository.deleteByUserUserId(userId);
+
+        // 4단계: 즐겨찾기 삭제 (userId 기준)
+        favoriteRepository.deleteByUserUserId(userId);
+
+        // 5단계: User 삭제
+        userRepository.deleteById(userId);
     }
 
     // AT + RT 발급 후 Redis에 RT를 저장하는 공통 로직

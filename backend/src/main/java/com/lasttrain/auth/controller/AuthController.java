@@ -93,4 +93,19 @@ public class AuthController {
         authService.logout(userDetails.getUserId());
         return ApiResponse.ok();
     }
+
+    @Operation(summary = "계정 삭제", description = "사용자 계정을 완전히 삭제합니다. (연쇄 삭제: 알림, 즐겨찾기 등)")
+    @SecurityRequirement(name = "BearerAuth")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "계정 삭제 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요")
+    })
+    @DeleteMapping("/withdraw")
+    public ApiResponse<Void> withdraw(
+            @AuthenticationPrincipal SecurityUserDetails userDetails) {
+
+        // 사용자 계정 및 관련 데이터 삭제
+        authService.withdraw(userDetails.getUserId());
+        return ApiResponse.ok();
+    }
 }
