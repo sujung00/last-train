@@ -3,8 +3,10 @@ package com.lasttrain.notification.repository;
 import com.lasttrain.notification.domain.NotificationSchedule;
 import com.lasttrain.notification.domain.NotificationSubscription;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -68,4 +70,22 @@ public interface ScheduleRepository extends JpaRepository<NotificationSchedule, 
             WHERE s.scheduleId = :scheduleId
             """)
     Optional<NotificationSchedule> findByIdWithSubscription(@Param("scheduleId") Long scheduleId);
+
+    /**
+     * 특정 사용자의 모든 알림 예약을 삭제합니다.
+     *
+     * 언제 쓰이나요?
+     *   사용자 계정 삭제 시 해당 사용자의 알림 예약을 모두 삭제할 때 사용합니다.
+     *   NotificationSchedule은 User를 직접 참조하지 않고 Subscription을 통해 참조하므로
+     *   JOIN을 통해 조회합니다.
+     *
+     * @param userId 삭제할 사용자의 ID
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+            DELETE FROM NotificationSchedule s
+            WHERE s.subscription.user.userId = :userId
+            """)
+    void deleteByUserUserId(@Param("userId") Long userId);
 }

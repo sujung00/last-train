@@ -14,6 +14,7 @@ public enum ErrorCode {
     TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "토큰이 만료되었습니다."),
     TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰입니다."),
     REFRESH_TOKEN_MISMATCH(HttpStatus.UNAUTHORIZED, "Refresh Token이 일치하지 않습니다."),
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
     KAKAO_AUTH_ERROR(HttpStatus.SERVICE_UNAVAILABLE, "카카오 인증 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."),
 
     // Route

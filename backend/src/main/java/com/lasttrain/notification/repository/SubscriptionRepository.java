@@ -3,6 +3,8 @@ package com.lasttrain.notification.repository;
 import com.lasttrain.auth.domain.User;
 import com.lasttrain.notification.domain.NotificationSubscription;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -45,4 +47,16 @@ public interface SubscriptionRepository extends JpaRepository<NotificationSubscr
      * @return 조건에 맞는 구독 (없으면 Optional.empty())
      */
     Optional<NotificationSubscription> findByUserAndEndpoint(User user, String endpoint);
+
+    /**
+     * 특정 사용자의 모든 알림 구독을 삭제합니다.
+     *
+     * 언제 쓰이나요?
+     *   사용자 계정 삭제 시 해당 사용자의 알림 구독을 모두 삭제할 때 사용합니다.
+     *
+     * @param userId 삭제할 사용자의 ID
+     */
+    @Modifying
+    @Transactional
+    void deleteByUserUserId(Long userId);
 }

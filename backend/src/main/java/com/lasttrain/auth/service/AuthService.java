@@ -86,7 +86,7 @@ public class AuthService {
             throw new AppException(ErrorCode.INVALID_CREDENTIALS);
         }
 
-        return issueAndStoreTokens(user.getUserId());
+        return issueAndStoreTokens(user);
     }
 
     /**
@@ -109,7 +109,10 @@ public class AuthService {
             throw new AppException(ErrorCode.REFRESH_TOKEN_MISMATCH);
         }
 
-        return issueAndStoreTokens(userId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        return issueAndStoreTokens(user);
     }
 
     /**
@@ -156,13 +159,13 @@ public class AuthService {
     }
 
     // AT + RT 발급 후 Redis에 RT를 저장하는 공통 로직
-    private TokenResponse issueAndStoreTokens(Long userId) {
-        String accessToken  = tokenProvider.createAccessToken(userId);
-        String refreshToken = tokenProvider.createRefreshToken(userId);
+    private TokenResponse issueAndStoreTokens(User user) {
+        String accessToken  = tokenProvider.createAccessToken(user.getUserId());
+        String refreshToken = tokenProvider.createRefreshToken(user.getUserId());
 
         // Redis에 "RT:{userId}" 키로 RT 저장, 7일 후 자동 만료
-        redisTemplate.opsForValue().set(RT_PREFIX + userId, refreshToken, RT_TTL_DAYS, TimeUnit.DAYS);
+        redisTemplate.opsForValue().set(RT_PREFIX + user.getUserId(), refreshToken, RT_TTL_DAYS, TimeUnit.DAYS);
 
-        return new TokenResponse(accessToken, refreshToken, userId);
+        return new TokenResponse(accessToken, refreshToken, user.getUserId(), user.getEmail());
     }
 }

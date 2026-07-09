@@ -3,6 +3,8 @@ package com.lasttrain.favorite.repository;
 import com.lasttrain.auth.domain.User;
 import com.lasttrain.favorite.domain.Favorite;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -54,4 +56,16 @@ public interface FavoriteRepository extends JpaRepository<Favorite, Long> {
      * @return 이미 존재하면 true, 없으면 false
      */
     boolean existsByUserAndName(User user, String name);
+
+    /**
+     * 특정 사용자의 모든 즐겨찾기를 삭제합니다.
+     *
+     * 언제 쓰이나요?
+     *   사용자 계정 삭제 시 해당 사용자의 즐겨찾기를 모두 삭제할 때 사용합니다.
+     *
+     * @param userId 삭제할 사용자의 ID
+     */
+    @Modifying
+    @Transactional
+    void deleteByUserUserId(Long userId);
 }

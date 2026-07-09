@@ -62,18 +62,18 @@ public class KakaoAuthService {
                                 .build()
                 ));
 
-        return issueAndStoreTokens(user.getUserId());
+        return issueAndStoreTokens(user.getUserId(), kakaoUserInfo.email());
     }
 
     // AT + RT 발급 후 Redis에 RT를 저장하는 로직.
     // AuthService.issueAndStoreTokens()와 동일한 방식(같은 Redis 키 형식 "RT:{userId}")을 사용해야
     // 이메일 로그인과 카카오 로그인이 같은 방식으로 재발급/로그아웃을 처리할 수 있습니다.
-    private TokenResponse issueAndStoreTokens(Long userId) {
+    private TokenResponse issueAndStoreTokens(Long userId, String email) {
         String accessToken = tokenProvider.createAccessToken(userId);
         String refreshToken = tokenProvider.createRefreshToken(userId);
 
         redisTemplate.opsForValue().set(AuthService.RT_PREFIX + userId, refreshToken, RT_TTL_DAYS, TimeUnit.DAYS);
 
-        return new TokenResponse(accessToken, refreshToken, userId);
+        return new TokenResponse(accessToken, refreshToken, userId, email);
     }
 }

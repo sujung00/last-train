@@ -11,5 +11,8 @@ public record TokenResponse(
         String refreshToken,
 
         @Schema(description = "사용자 ID", example = "1")
-        Long userId
+        Long userId,
+
+        @Schema(description = "사용자 이메일 (선택사항, 카카오 로그인 시 null 가능)", example = "user@example.com")
+        String email
 ) {}
