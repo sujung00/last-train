@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import api from '../api/axios'
+import api from '../api/axios' // 계정 삭제 API 호출용
 
 /**
  * MyPage: 마이페이지
@@ -19,6 +19,7 @@ export default function MyPage() {
   const [loggingOut, setLoggingOut] = useState(false)
   const [withdrawing, setWithdrawing] = useState(false)
   const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false)
+  const [provider, setProvider] = useState('')
 
   useEffect(() => {
     // 비로그인 상태 체크
@@ -28,35 +29,17 @@ export default function MyPage() {
       return
     }
 
-    // 사용자 정보 조회 (optional: 저장된 이메일이 있으면 사용)
+    // localStorage에서 provider와 userEmail 가져오기
+    const userProvider = localStorage.getItem('userProvider')
     const savedEmail = localStorage.getItem('userEmail')
-    if (savedEmail) {
-      setEmail(savedEmail)
-      setLoading(false)
-    } else {
-      // API에서 사용자 정보 조회 (선택사항)
-      fetchUserInfo()
-    }
-  }, [navigate])
 
-  const fetchUserInfo = async () => {
-    try {
-      const response = await api.get('/api/v1/users/me')
-      if (response.data) {
-        setEmail(response.data.email)
-        localStorage.setItem('userEmail', response.data.email)
-      }
-    } catch (err) {
-      // API가 없는 경우: localStorage의 이메일 사용
-      const token = localStorage.getItem('accessToken')
-      if (token) {
-        // 토큰이 있으면 로그인 상태
-        setEmail('사용자')
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
+    // provider 저장
+    setProvider(userProvider || '')
+
+    // 이메일 표시 (provider에 관계없이 userEmail 사용)
+    setEmail(savedEmail || '')
+    setLoading(false)
+  }, [navigate])
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -65,7 +48,9 @@ export default function MyPage() {
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')
       localStorage.removeItem('userEmail')
+      localStorage.removeItem('userProvider')
 
+      window.dispatchEvent(new Event('authChange'))
       // 로그아웃 후 /login으로 이동
       navigate('/login', { replace: true })
     } catch (err) {
@@ -84,7 +69,9 @@ export default function MyPage() {
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')
       localStorage.removeItem('userEmail')
+      localStorage.removeItem('userProvider')
 
+      window.dispatchEvent(new Event('authChange'))
       // 계정 삭제 후 /login으로 이동
       navigate('/login', { replace: true })
     } catch (err) {
@@ -142,7 +129,9 @@ export default function MyPage() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-white font-semibold text-sm">{email}</div>
-              <div className="text-gray-400 text-xs mt-1">메일 계정</div>
+              <div className="text-gray-400 text-xs mt-1">
+                {provider === 'KAKAO' ? '카카오 계정' : '메일 계정'}
+              </div>
             </div>
           </div>
         </div>

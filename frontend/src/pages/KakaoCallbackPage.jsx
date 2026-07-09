@@ -21,11 +21,18 @@ export default function KakaoCallbackPage() {
 
       try {
         const response = await api.get(`/api/v1/auth/kakao/callback?code=${code}`)
-        const { accessToken, refreshToken } = response.data.data
+        const { accessToken, refreshToken, email } = response.data.data
 
         localStorage.setItem('accessToken', accessToken)
         localStorage.setItem('refreshToken', refreshToken)
+        localStorage.setItem('userProvider', 'KAKAO')
 
+        // email이 있으면 저장 (없으면 저장 안 함)
+        if (email) {
+          localStorage.setItem('userEmail', email)
+        }
+
+        window.dispatchEvent(new Event('authChange'))
         navigate('/')
       } catch (error) {
         console.error('카카오 로그인 콜백 처리 실패:', error)

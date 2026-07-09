@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 /**
  * 하단 탭바 컴포넌트
@@ -13,16 +13,45 @@ import { useState } from 'react'
  *   - 비로그인: "로그인" → /login
  *   - 로그인: "마이" → /mypage
  * - 현재 페이지에 active 스타일 적용
+ * - localStorage 변화를 실시간으로 감지
  */
 export default function BottomTabBar() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  // ✅ 로그인 상태: 초기값 계산 함수로 처리 (setState in effect 제거)
-  const [isLoggedIn] = useState(() => {
+  // ✅ 로그인 상태: 초기값은 현재 localStorage에서 읽음, 이후 실시간 업데이트
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
     const token = localStorage.getItem('accessToken')
     return !!token
   })
+
+  // 마운트 시 초기값 재확인 + authChange 커스텀 이벤트 + storage 이벤트 감지
+  useEffect(() => {
+    // 마운트 시 현재 localStorage 상태 반영
+    const token = localStorage.getItem('accessToken')
+    setIsLoggedIn(!!token)
+
+    // 같은 탭 내 로그인/로그아웃 감지 (커스텀 이벤트)
+    const handleAuthChange = () => {
+      const token = localStorage.getItem('accessToken')
+      setIsLoggedIn(!!token)
+    }
+
+    // 다른 탭에서의 로그인/로그아웃 감지 (storage 이벤트)
+    const handleStorageChange = (event) => {
+      if (event.key === 'accessToken' || event.key === null) {
+        const token = localStorage.getItem('accessToken')
+        setIsLoggedIn(!!token)
+      }
+    }
+
+    window.addEventListener('authChange', handleAuthChange)
+    window.addEventListener('storage', handleStorageChange)
+    return () => {
+      window.removeEventListener('authChange', handleAuthChange)
+      window.removeEventListener('storage', handleStorageChange)
+    }
+  }, [])
 
   // 탭바가 필요한 페이지 확인
   const shouldShowTabBar = ['/', '/favorites', '/mypage'].includes(location.pathname)
@@ -39,6 +68,16 @@ export default function BottomTabBar() {
     },
   ]
 
+  const handleTabClick = (tab) => {
+    // 마이/로그인 탭은 매번 최신 localStorage 상태 확인
+    if (tab.emoji === '👤' || tab.emoji === '🔐') {
+      const token = localStorage.getItem('accessToken')
+      navigate(token ? '/mypage' : '/login')
+    } else {
+      navigate(tab.path)
+    }
+  }
+
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-[#1a1a2e] border-t border-gray-700 flex justify-around items-center h-[60px] z-40 rounded-b-lg">
       {tabs.map((tab) => {
@@ -46,7 +85,7 @@ export default function BottomTabBar() {
         return (
           <button
             key={tab.path}
-            onClick={() => navigate(tab.path)}
+            onClick={() => handleTabClick(tab)}
             className={`flex-1 flex flex-col items-center justify-center h-full gap-1 transition ${
               isActive
                 ? 'border-t-2 border-t-[#6366f1]'

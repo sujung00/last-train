@@ -573,10 +573,10 @@ export default function MainPage() {
             </label>
             <div>
               {recentSearches.map((search, index) => (
-                <button
+                <div
                   key={index}
                   onClick={() => handleRecentSearchSelect(search)}
-                  className="w-full flex items-center justify-between py-3 px-2 border-b border-gray-700 hover:bg-gray-800 transition text-left"
+                  className="w-full flex items-center justify-between py-3 px-2 border-b border-gray-700 hover:bg-gray-800 transition text-left cursor-pointer"
                 >
                   <div className="text-white font-medium text-sm flex-1 min-w-0">
                     <span>🕐</span>
@@ -595,7 +595,7 @@ export default function MainPage() {
                   >
                     ✕
                   </button>
-                </button>
+                </div>
               ))}
             </div>
           </div>

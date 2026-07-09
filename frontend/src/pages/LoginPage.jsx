@@ -21,10 +21,18 @@ export default function LoginPage() {
       localStorage.setItem('accessToken', accessToken)
       localStorage.setItem('refreshToken', refreshToken)
       localStorage.setItem('userEmail', email)
+      localStorage.setItem('userProvider', 'EMAIL')
 
+      window.dispatchEvent(new Event('authChange'))
       navigate('/')
     } catch (err) {
-      setError(err.response?.data?.message || '로그인 실패. 다시 시도해주세요.')
+      // 401: 이메일/비밀번호 불일치
+      if (err.response?.status === 401) {
+        setError('이메일 또는 비밀번호가 올바르지 않아요')
+      } else {
+        // 그 외 에러
+        setError('로그인에 실패했어요. 잠시 후 다시 시도해주세요')
+      }
     } finally {
       setLoading(false)
     }
@@ -58,7 +66,7 @@ export default function LoginPage() {
         <form onSubmit={handleLogin} className="space-y-4">
           {/* 에러 메시지 */}
           {error && (
-            <div className="bg-red-500 bg-opacity-20 border border-red-500 text-red-200 px-4 py-3 rounded">
+            <div className="bg-red-900 bg-opacity-50 border border-red-600 text-red-200 px-4 py-3 rounded">
               {error}
             </div>
           )}
