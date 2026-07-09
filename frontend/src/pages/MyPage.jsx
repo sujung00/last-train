@@ -136,11 +136,14 @@ export default function MyPage() {
           </div>
         </div>
 
-        {/* 설정 섹션 (placeholder) */}
+        {/* 설정 섹션 */}
         <div className="mb-8">
           <label className="block text-white text-sm font-medium mb-3">설정</label>
           <div className="space-y-2">
-            <button className="w-full text-left px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded border border-gray-700 transition text-gray-300 text-sm">
+            <button
+              onClick={() => navigate('/notifications')}
+              className="w-full text-left px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded border border-gray-700 transition text-gray-300 text-sm"
+            >
               📱 알림 설정
             </button>
             <button className="w-full text-left px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded border border-gray-700 transition text-gray-300 text-sm">

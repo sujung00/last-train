@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import FavoritePage from './pages/FavoritePage'
 import MyPage from './pages/MyPage'
+import NotificationSettingsPage from './pages/NotificationSettingsPage'
 import KakaoCallbackPage from './pages/KakaoCallbackPage'
 import BottomTabBar from './components/BottomTabBar'
 
@@ -22,6 +23,7 @@ function App() {
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/favorites" element={<FavoritePage />} />
               <Route path="/mypage" element={<MyPage />} />
+              <Route path="/notifications" element={<NotificationSettingsPage />} />
               <Route path="/auth/kakao/callback" element={<KakaoCallbackPage />} />
             </Routes>
           </div>

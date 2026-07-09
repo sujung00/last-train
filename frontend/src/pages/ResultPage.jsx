@@ -38,6 +38,10 @@ export default function ResultPage() {
   const [isFavorited, setIsFavorited] = useState(false)
   const [showEmojiSelector, setShowEmojiSelector] = useState(false)
   const [isSavingFavorite, setIsSavingFavorite] = useState(false)
+  const [subscribedRoutes, setSubscribedRoutes] = useState(new Set()) // 구독된 경로 인덱스
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState(null) // 현재 구독 중인 경로
+  const [showMinutesSelector, setShowMinutesSelector] = useState(false)
+  const [isSubscribingNotification, setIsSubscribingNotification] = useState(false)
 
   // ✅ 로그인 상태: 초기값 계산 함수로 이동 (setState in effect 제거)
   const [isLoggedIn] = useState(() => !!localStorage.getItem('accessToken'))
@@ -180,6 +184,123 @@ export default function ResultPage() {
     }
   }
 
+  // ── 경로별 알림 받기 버튼 클릭 처리 ────────────────────────────────────────
+  const handleNotificationClick = (routeIndex) => {
+    // 비로그인 사용자는 로그인 페이지로
+    if (!isLoggedIn) {
+      navigate('/login')
+      return
+    }
+
+    // 현재 선택된 경로 저장 후 분 선택 모달 표시
+    setSelectedRouteIndex(routeIndex)
+    setShowMinutesSelector(true)
+  }
+
+  // ── 알림 구독 로직 (선택된 경로 기준) ──────────────────────────────────────
+  const handleSubscribeNotification = async (minutesBefore) => {
+    setShowMinutesSelector(false)
+    setIsSubscribingNotification(true)
+
+    try {
+      // 선택된 경로 확인
+      if (selectedRouteIndex === null || !limitedRoutes[selectedRouteIndex]) {
+        alert('경로 정보를 찾을 수 없습니다.')
+        setIsSubscribingNotification(false)
+        return
+      }
+
+      const selectedRoute = limitedRoutes[selectedRouteIndex]
+
+      // 1️⃣ ServiceWorker 등록
+      if ('serviceWorker' in navigator) {
+        await navigator.serviceWorker.register('/sw.js')
+      }
+
+      // 2️⃣ Notification 권한 요청
+      if ('Notification' in window && Notification.permission === 'default') {
+        const permission = await Notification.requestPermission()
+        if (permission !== 'granted') {
+          alert('알림 권한이 필요합니다.')
+          setIsSubscribingNotification(false)
+          return
+        }
+      }
+
+      // 3️⃣ Push 구독 (PushManager.subscribe)
+      const registration = await navigator.serviceWorker.ready
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+      })
+
+      // 4️⃣ 구독 정보 추출
+      const { endpoint } = subscription
+      const key = subscription.getKey('p256dh')
+      const auth = subscription.getKey('auth')
+
+      // 5️⃣ departureDeadline (HH:mm) → LocalDateTime (ISO 형식) 변환
+      const departureDeadlineStr = selectedRoute?.departureDeadline || '00:00'
+      const [hours, minutes] = departureDeadlineStr.split(':').map(Number)
+
+      // 현재 날짜 기준으로 시작
+      const departureDate = new Date()
+      departureDate.setHours(hours, minutes, 0, 0)
+
+      // 자정 넘김 시간(00~03시)은 다음날로 처리
+      if (hours >= 0 && hours < 4) {
+        departureDate.setDate(departureDate.getDate() + 1)
+      }
+
+      // ISO 형식으로 변환 ("2026-07-09T01:08:00")
+      const year = departureDate.getFullYear()
+      const month = String(departureDate.getMonth() + 1).padStart(2, '0')
+      const day = String(departureDate.getDate()).padStart(2, '0')
+      const hour = String(departureDate.getHours()).padStart(2, '0')
+      const min = String(departureDate.getMinutes()).padStart(2, '0')
+      const lastBoardTimeISO = `${year}-${month}-${day}T${hour}:${min}:00`
+
+      // 6️⃣ 백엔드에 구독 정보 전송
+      await api.post('/api/v1/notifications/subscribe', {
+        endpoint: endpoint,
+        auth: btoa(String.fromCharCode.apply(null, new Uint8Array(auth))),
+        p256dh: btoa(String.fromCharCode.apply(null, new Uint8Array(key))),
+        origin: origin,
+        destination: destination,
+        lastBoardTime: lastBoardTimeISO,
+        notifyMinutesBefore: minutesBefore,
+      })
+
+      // 7️⃣ 성공 시 구독된 경로 목록 업데이트
+      setSubscribedRoutes((prev) => new Set(prev).add(selectedRouteIndex))
+      alert(`${minutesBefore}분 전 알림이 설정되었습니다!`)
+    } catch (error) {
+      console.error('알림 구독 실패:', error)
+      alert('알림 설정에 실패했어요. 다시 시도해주세요.')
+    } finally {
+      setIsSubscribingNotification(false)
+      setSelectedRouteIndex(null)
+    }
+  }
+
+  // ── Base64 URL을 Uint8Array로 변환 (VAPID 공개키 변환용) ──────────────────
+  const urlBase64ToUint8Array = (base64String) => {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+    const base64 = (base64String + padding)
+      .replace(/\-/g, '+')
+      .replace(/_/g, '/')
+
+    const rawData = window.atob(base64)
+    const outputArray = new Uint8Array(rawData.length)
+
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i)
+    }
+
+    return outputArray
+  }
+
   return (
     <div className="min-h-screen bg-[#1a1a2e] flex flex-col">
       {/* 헤더 */}
@@ -240,6 +361,9 @@ export default function ResultPage() {
               route={route}
               index={index}
               isRecommended={index === 0}
+              isSubscribed={subscribedRoutes.has(index)}
+              onNotificationClick={() => handleNotificationClick(index)}
+              isSubscribing={isSubscribingNotification && selectedRouteIndex === index}
             />
           ))}
         </div>
@@ -308,6 +432,39 @@ export default function ResultPage() {
           destination={destination}
         />
       )}
+
+      {/* 알림 분 선택 모달 */}
+      {showMinutesSelector && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-sm w-full border border-gray-700">
+            <h2 className="text-lg font-bold text-white mb-2">언제쯤 알림을 받을까요?</h2>
+            <p className="text-gray-300 text-sm mb-6">
+              막차까지 몇 분 전에 알림을 받을지 선택해주세요.
+            </p>
+
+            <div className="space-y-3">
+              {[10, 20, 30].map((minutes) => (
+                <button
+                  key={minutes}
+                  onClick={() => handleSubscribeNotification(minutes)}
+                  disabled={isSubscribingNotification}
+                  className="w-full px-4 py-3 bg-[#6366f1] hover:bg-[#4338ca] text-white rounded font-medium transition disabled:bg-gray-600 disabled:cursor-not-allowed"
+                >
+                  {minutes}분 전에 알림 받기
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setShowMinutesSelector(false)}
+              disabled={isSubscribingNotification}
+              className="w-full mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded font-medium transition disabled:bg-gray-600 disabled:cursor-not-allowed"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -316,7 +473,7 @@ export default function ResultPage() {
  * 경로 카드 컴포넌트
  * 추천 경로(index 0)와 대안 경로(index > 0)를 시각적으로 구분
  */
-function RouteCard({ route, index, isRecommended }) {
+function RouteCard({ route, index, isRecommended, isSubscribed, onNotificationClick, isSubscribing }) {
   const { departureDeadline, currentStatus, transfers } = route
   const { canCatch, minutesLeft, message } = currentStatus
 
@@ -377,6 +534,25 @@ function RouteCard({ route, index, isRecommended }) {
         {message && (
           <div className="text-gray-300 text-sm">{message}</div>
         )}
+      </div>
+
+      {/* 알림 받기 버튼 */}
+      <div className="mt-4">
+        <button
+          onClick={onNotificationClick}
+          disabled={isSubscribed || isSubscribing}
+          className={`w-full py-2 text-sm font-medium rounded transition ${
+            isSubscribed
+              ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+              : 'bg-green-600 hover:bg-green-700 text-white'
+          }`}
+        >
+          {isSubscribing
+            ? '알림 설정 중...'
+            : isSubscribed
+            ? '✅ 알림 설정됨'
+            : '🔔 알림 받기'}
+        </button>
       </div>
     </div>
   )
