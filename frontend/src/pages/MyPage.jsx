@@ -146,9 +146,11 @@ export default function MyPage() {
             >
               📱 알림 설정
             </button>
-            <button className="w-full text-left px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded border border-gray-700 transition text-gray-300 text-sm">
-              🔒 비밀번호 변경
-            </button>
+            {provider === 'EMAIL' && (
+              <button className="w-full text-left px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded border border-gray-700 transition text-gray-300 text-sm">
+                🔒 비밀번호 변경
+              </button>
+            )}
           </div>
         </div>
 
