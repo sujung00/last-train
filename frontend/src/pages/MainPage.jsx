@@ -490,7 +490,7 @@ export default function MainPage() {
               {/* 막차 조회 버튼 */}
               {/* (AC-006: 출발지 + 도착지 모두 입력 시만 활성화) */}
               <button
-                onClick={handleQueryLastTrain}
+                onClick={() => handleQueryLastTrain()}
                 disabled={!isQueryable || querying}
                 className={`w-full py-4 font-bold rounded-lg transition text-white text-lg ${
                   isQueryable && !querying
