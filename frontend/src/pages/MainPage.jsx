@@ -390,20 +390,20 @@ export default function MainPage() {
   const isQueryable = origin && destination
 
   return (
-    <div className="h-full bg-[#1a1a2e] flex flex-col">
-      {/* 헤더 + 입력 영역 + 버튼 통합 보라색 컨테이너 */}
-      <div className="bg-[#6366f1] rounded-b-2xl pb-6">
+    <div className="h-full bg-white flex flex-col">
+      {/* 헤더 + 입력 영역 + 버튼 통합 섹션 */}
+      <div className="bg-white border-b border-gray-200 pb-4">
         {/* 헤더 */}
-        <header className="px-4 py-8">
-          <h1 className="text-2xl font-bold text-white">막차알리미 🚂</h1>
-          <p className="text-[#e0e7ff] text-sm mt-1">오늘 막차 놓치지 마세요</p>
+        <header className="px-4 py-6">
+          <h1 className="text-3xl font-bold text-gray-900">막차알리미</h1>
+          <p className="text-gray-500 text-sm mt-2">마지막 한 대를 놓치지 마세요</p>
         </header>
 
-        {/* 로딩 상태 - 보라색 영역 안에 */}
+        {/* 로딩 상태 */}
         {loading && (
-          <div className="flex items-center justify-center py-12 px-4">
-            <div className="animate-spin rounded-full h-8 w-8 border border-gray-700 border-t-[#6366f1]"></div>
-            <span className="text-white ml-3">위치 정보를 불러오는 중...</span>
+          <div className="flex items-center justify-center py-8 px-4">
+            <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-gray-900"></div>
+            <span className="text-gray-600 ml-3 text-sm">위치 정보를 불러오는 중...</span>
           </div>
         )}
 
@@ -411,31 +411,23 @@ export default function MainPage() {
         {!loading && (
           <div className="px-4">
               {/* 출발지/도착지 통합 카드 */}
-              <div className="mb-6 bg-white bg-opacity-10 backdrop-blur rounded-lg border border-white border-opacity-20 overflow-hidden">
+              <div className="mb-6 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
               {/* 출발지 섹션 */}
               <div className="p-4">
-                <div className="text-gray-500 text-xs font-medium mb-2 flex items-center gap-2">
-                  <span>🟢</span>
-                  <span>출발지</span>
-                </div>
+                <div className="text-gray-600 text-xs font-medium mb-3 uppercase tracking-wide">출발지</div>
                 <button
                   onClick={handleChangeOrigin}
                   className="w-full text-left"
                 >
-                  <div className="font-semibold text-sm">
+                  <div className="font-semibold text-base text-gray-900">
                     {origin?.name === '현재 위치 (GPS 자동)' ? (
-                      <>
-                        <span className="text-gray-800">📍 현재 위치</span>
-                        <span className="text-gray-400 text-xs ml-2">(GPS 기반)</span>
-                      </>
+                      '현재 위치'
                     ) : (
-                      <span className="text-gray-800">{origin?.name || '출발지를 입력하세요'}</span>
+                      origin?.name || '위치를 선택하세요'
                     )}
                   </div>
-                  {origin && origin.name !== '현재 위치 (GPS 자동)' && (
-                    <div className="text-gray-400 text-xs mt-1">
-                      {origin.lat.toFixed(4)}, {origin.lng.toFixed(4)}
-                    </div>
+                  {origin && origin.name === '현재 위치 (GPS 자동)' && (
+                    <div className="text-gray-500 text-xs mt-1">GPS 기반</div>
                   )}
                 </button>
 
@@ -443,46 +435,38 @@ export default function MainPage() {
                 {isOriginChangedFromGPS && (
                   <button
                     onClick={handleBackToGPS}
-                    className="mt-3 px-3 py-2 bg-[#e0e7ff] hover:bg-[#c7d2fe] text-[#6366f1] font-medium rounded text-xs transition w-full border border-[#a5b4fc]"
+                    className="mt-3 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium rounded text-xs transition w-full border border-blue-200"
                     title="현재 위치(GPS)로 복귀"
                   >
-                    📍 현재 위치로
+                    현재 위치로 복귀
                   </button>
                 )}
 
                 {/* GPS 권한 거부 안내 (EC-001) */}
                 {gpsError && (
-                  <div className="mt-3 text-xs text-yellow-200 bg-yellow-900 bg-opacity-50 px-2 py-2 rounded border border-yellow-600">
+                  <div className="mt-3 text-xs text-amber-800 bg-amber-50 px-3 py-2 rounded border border-amber-200">
                     {gpsError}
                   </div>
                 )}
               </div>
 
               {/* 구분선 */}
-              <div className="h-px bg-white bg-opacity-10"></div>
+              <div className="h-px bg-gray-200"></div>
 
               {/* 도착지 섹션 */}
               <div className="p-4">
-                <div className="text-gray-500 text-xs font-medium mb-2 flex items-center gap-2">
-                  <span>🔴</span>
-                  <span>도착지</span>
-                </div>
+                <div className="text-gray-600 text-xs font-medium mb-3 uppercase tracking-wide">도착지</div>
                 <button
                   onClick={() => setShowDestSearch(true)}
                   className="w-full text-left"
                 >
-                  <div className="font-semibold text-sm">
+                  <div className="font-semibold text-base text-gray-900">
                     {destination?.name ? (
-                      <span className="text-gray-800">{destination.name}</span>
+                      destination.name
                     ) : (
-                      <span className="text-gray-400">도착지를 입력하세요</span>
+                      <span className="text-gray-400">위치를 선택하세요</span>
                     )}
                   </div>
-                  {destination && (
-                    <div className="text-gray-400 text-xs mt-1">
-                      {destination.lat.toFixed(4)}, {destination.lng.toFixed(4)}
-                    </div>
-                  )}
                 </button>
               </div>
             </div>
@@ -492,10 +476,10 @@ export default function MainPage() {
               <button
                 onClick={() => handleQueryLastTrain()}
                 disabled={!isQueryable || querying}
-                className={`w-full py-4 font-bold rounded-lg transition text-white text-lg ${
+                className={`w-full py-3 font-semibold rounded-lg transition text-base ${
                   isQueryable && !querying
-                    ? 'bg-[#4338ca] cursor-pointer'
-                    : 'bg-[#7c7aad] cursor-not-allowed'
+                    ? 'bg-gray-900 text-white hover:bg-black cursor-pointer'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
                 {querying ? '조회 중...' : '막차 조회'}
@@ -504,20 +488,20 @@ export default function MainPage() {
         )}
       </div>
 
-      {/* 메인 콘텐츠 영역 - 어두운 배경 */}
-      <main className="flex-1 px-4 py-6 overflow-y-auto bg-[#1a1a2e]">
+      {/* 메인 콘텐츠 영역 */}
+      <main className="flex-1 px-4 py-6 overflow-y-auto bg-white">
         {/* T-012: 막차 조회 에러 배너 (EC-003, EC-004) */}
         {queryError && (
           <div className="mb-6 text-sm px-4 py-3 rounded">
             {queryError === '오늘 막차는 종료됐어요' ? (
-              // EC-003: 막차 종료 - 경고(노란색) 배너
-              <div className="text-yellow-200 bg-yellow-900 bg-opacity-50 border border-yellow-600 rounded">
-                ⏰ {queryError}
+              // EC-003: 막차 종료 - 경고(주황색) 배너
+              <div className="text-amber-900 bg-amber-50 border border-amber-200 rounded">
+                {queryError}
               </div>
             ) : (
-              // EC-004: API 오류 - 에러(빨간색) 배너
-              <div className="text-red-200 bg-red-900 bg-opacity-50 border border-red-600 rounded">
-                ❌ {queryError}
+              // EC-004: API 오류 - 에러(빨강색) 배너
+              <div className="text-red-900 bg-red-50 border border-red-200 rounded">
+                {queryError}
               </div>
             )}
           </div>
@@ -526,16 +510,16 @@ export default function MainPage() {
         {/* 즐겨찾기 칩 섹션 (T-009: FR-007, AC-005) */}
         {isLoggedIn && (
           <div className="mb-8">
-            <label className="block text-white text-sm font-medium mb-3">
-              즐겨찾기 목적지
-            </label>
+            <h2 className="block text-gray-900 text-sm font-semibold mb-4 uppercase tracking-wide">
+              즐겨찾기
+            </h2>
 
             {/* 로딩 중 */}
             {loadingFavorites && (
               <div className="flex items-center justify-center py-6">
-                <div className="animate-spin rounded-full h-6 w-6 border border-gray-700 border-t-[#6366f1]"></div>
-                <span className="text-gray-400 ml-2 text-sm">
-                  즐겨찾기를 불러오는 중...
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-gray-900"></div>
+                <span className="text-gray-500 ml-2 text-sm">
+                  불러오는 중...
                 </span>
               </div>
             )}
@@ -547,7 +531,7 @@ export default function MainPage() {
                   <button
                     key={favorite.id}
                     onClick={() => handleFavoriteSelect(favorite)}
-                    className="px-4 py-2 bg-white text-gray-800 rounded-full hover:bg-gray-100 transition flex items-center gap-2 text-sm font-medium border border-[#6366f1]"
+                    className="px-4 py-2 bg-gray-100 text-gray-900 rounded-full hover:bg-gray-200 transition flex items-center gap-2 text-sm font-medium border border-gray-300"
                   >
                     <span className="text-lg">{favorite.emoji}</span>
                     <span>{favorite.name}</span>
@@ -559,7 +543,7 @@ export default function MainPage() {
             {/* 즐겨찾기 없음 */}
             {!loadingFavorites && favorites.length === 0 && (
               <p className="text-gray-500 text-sm">
-                즐겨찾기한 목적지가 없어요
+                아직 즐겨찾기한 목적지가 없어요
               </p>
             )}
           </div>
@@ -568,20 +552,19 @@ export default function MainPage() {
         {/* 최근 검색 섹션 (T-011: FR-008, AC-010) */}
         {recentSearches.length > 0 && (
           <div className="mb-8">
-            <label className="block text-white text-sm font-medium mb-3">
+            <h2 className="block text-gray-900 text-sm font-semibold mb-4 uppercase tracking-wide">
               최근 검색
-            </label>
+            </h2>
             <div>
               {recentSearches.map((search, index) => (
                 <div
                   key={index}
                   onClick={() => handleRecentSearchSelect(search)}
-                  className="w-full flex items-center justify-between py-3 px-2 border-b border-gray-700 hover:bg-gray-800 transition text-left cursor-pointer"
+                  className="w-full flex items-center justify-between py-3 px-0 border-b border-gray-200 hover:bg-gray-50 transition text-left cursor-pointer"
                 >
-                  <div className="text-white font-medium text-sm flex-1 min-w-0">
-                    <span>🕐</span>
-                    <span className="ml-2">{search.originName}</span>
-                    <span className="text-gray-500 mx-2">→</span>
+                  <div className="text-gray-900 font-medium text-sm flex-1 min-w-0">
+                    <span className="text-gray-600">{search.originName}</span>
+                    <span className="text-gray-400 mx-2">→</span>
                     <span>{search.destName}</span>
                   </div>
                   {/* 삭제 버튼 */}
@@ -590,7 +573,7 @@ export default function MainPage() {
                       e.stopPropagation()
                       handleRemoveRecentSearch(index)
                     }}
-                    className="ml-2 p-2 text-gray-400 hover:text-red-400 hover:bg-red-600 hover:bg-opacity-20 rounded transition flex-shrink-0"
+                    className="ml-2 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition flex-shrink-0"
                     title="이 항목 삭제"
                   >
                     ✕

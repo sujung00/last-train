@@ -34,22 +34,22 @@ export default function EmojiSelectorModal({ onSelect, onClose, destination }) {
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
       {/* 430px 기준으로 중앙 정렬되는 모달 */}
-      <div className="w-full max-w-[430px] bg-[#1a1a2e] rounded-lg p-6 border border-gray-700">
+      <div className="w-full max-w-[430px] bg-white rounded-lg p-6 border border-gray-200">
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-white text-lg font-bold">
-            "{destination}" 즐겨찾기 아이콘
+          <h2 className="text-gray-900 text-lg font-bold">
+            "{destination}" 아이콘 선택
           </h2>
           <button
             onClick={onClose}
             disabled={loading}
-            className="text-gray-400 hover:text-gray-200 transition text-2xl disabled:cursor-not-allowed"
+            className="text-gray-500 hover:text-gray-700 transition text-2xl disabled:cursor-not-allowed"
           >
             ✕
           </button>
         </div>
-        <p className="text-gray-400 text-sm mb-6">
-          이 목적지를 대표할 아이콘을 선택해주세요
+        <p className="text-gray-600 text-sm mb-6">
+          이 위치를 대표할 아이콘을 선택해주세요
         </p>
 
         {/* 이모지 그리드 */}
@@ -59,7 +59,7 @@ export default function EmojiSelectorModal({ onSelect, onClose, destination }) {
               key={emoji}
               onClick={() => handleSelectEmoji(emoji)}
               disabled={loading}
-              className="text-3xl p-3 bg-gray-800 hover:bg-gray-700 disabled:bg-gray-600 rounded-lg transition border border-gray-700 hover:border-[#6366f1] disabled:cursor-not-allowed"
+              className="text-3xl p-3 bg-gray-50 hover:bg-gray-100 disabled:bg-gray-200 rounded-lg transition border border-gray-200 hover:border-blue-500 disabled:cursor-not-allowed"
             >
               {emoji}
             </button>
@@ -70,7 +70,7 @@ export default function EmojiSelectorModal({ onSelect, onClose, destination }) {
         <button
           onClick={onClose}
           disabled={loading}
-          className="w-full px-4 py-2 bg-gray-800 hover:bg-gray-700 disabled:bg-gray-600 text-white rounded transition disabled:cursor-not-allowed"
+          className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-200 text-gray-900 rounded transition disabled:cursor-not-allowed"
         >
           취소
         </button>

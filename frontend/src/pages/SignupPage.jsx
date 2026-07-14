@@ -38,32 +38,32 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="h-full bg-[#1a1a2e] flex items-center justify-center px-4 relative">
+    <div className="h-full bg-white flex items-center justify-center px-4 relative">
       <div className="w-full max-w-md">
         {/* 타이틀 */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-white mb-2">막차알리미 🚂</h1>
-          <p className="text-xl text-gray-300 font-semibold">회원가입</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">막차알리미</h1>
+          <p className="text-xl text-gray-600 font-semibold">회원가입</p>
         </div>
 
         {/* 회원가입 폼 */}
         <form onSubmit={handleSignup} className="space-y-4">
           {/* 에러 메시지 */}
           {error && (
-            <div className="bg-red-500 bg-opacity-20 border border-red-500 text-red-200 px-4 py-3 rounded">
+            <div className="bg-red-50 border border-red-200 text-red-900 px-4 py-3 rounded">
               {error}
             </div>
           )}
 
           {/* 이메일 입력 */}
           <div>
-            <label className="block text-white text-sm font-medium mb-2">이메일</label>
+            <label className="block text-gray-900 text-sm font-medium mb-2">이메일</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="example@email.com"
-              className="w-full px-4 py-3 bg-gray-700 text-white rounded focus:outline-none focus:bg-gray-600 transition"
+              className="w-full px-4 py-3 bg-gray-50 text-gray-900 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
               required
               disabled={loading}
             />
@@ -71,13 +71,13 @@ export default function SignupPage() {
 
           {/* 비밀번호 입력 */}
           <div>
-            <label className="block text-white text-sm font-medium mb-2">비밀번호</label>
+            <label className="block text-gray-900 text-sm font-medium mb-2">비밀번호</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="8자 이상의 비밀번호"
-              className="w-full px-4 py-3 bg-gray-700 text-white rounded focus:outline-none focus:bg-gray-600 transition"
+              className="w-full px-4 py-3 bg-gray-50 text-gray-900 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
               required
               disabled={loading}
             />
@@ -85,13 +85,13 @@ export default function SignupPage() {
 
           {/* 비밀번호 확인 입력 */}
           <div>
-            <label className="block text-white text-sm font-medium mb-2">비밀번호 확인</label>
+            <label className="block text-gray-900 text-sm font-medium mb-2">비밀번호 확인</label>
             <input
               type="password"
               value={passwordConfirm}
               onChange={(e) => setPasswordConfirm(e.target.value)}
               placeholder="비밀번호를 다시 입력하세요"
-              className="w-full px-4 py-3 bg-gray-700 text-white rounded focus:outline-none focus:bg-gray-600 transition"
+              className="w-full px-4 py-3 bg-gray-50 text-gray-900 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
               required
               disabled={loading}
             />
@@ -101,7 +101,7 @@ export default function SignupPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#6366f1] hover:bg-[#4338ca] text-white font-bold py-3 rounded transition disabled:bg-gray-600 disabled:cursor-not-allowed"
+            className="w-full bg-gray-900 hover:bg-black text-white font-bold py-3 rounded transition disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             {loading ? '회원가입 중...' : '회원가입'}
           </button>
@@ -109,8 +109,8 @@ export default function SignupPage() {
 
         {/* 로그인 링크 */}
         <div className="text-center mt-6">
-          <span className="text-gray-400">이미 계정이 있으신가요? </span>
-          <Link to="/login" className="text-[#6366f1] hover:text-[#a5b4fc] font-medium transition">
+          <span className="text-gray-600">이미 계정이 있으신가요? </span>
+          <Link to="/login" className="text-gray-900 hover:text-black font-medium transition">
             로그인
           </Link>
         </div>
