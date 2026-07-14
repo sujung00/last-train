@@ -63,3 +63,4 @@ src/main/resources/application-prod.yml
 /docs/trouble-shooting/
 
 .env.local
+.gstack/
