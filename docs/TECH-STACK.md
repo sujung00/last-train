@@ -374,6 +374,34 @@ Host Machine (macOS)
 
 ---
 
-**마지막 업데이트**: 2026-06-26  
+## 14. 배포 환경 (AWS)
+
+### 14.1 AWS 인프라
+
+| 구분 | 서비스 | 상세 |
+|------|--------|------|
+| 컨테이너 | AWS ECS Fargate | Spring Boot + React 단일 컨테이너 |
+| 이미지 저장소 | AWS ECR | Docker 이미지 관리 |
+| 데이터베이스 | AWS RDS | MySQL 8.0 (db.t3.micro) |
+| 캐시 | AWS ElastiCache | Redis 7.1 (cache.t3.micro) |
+| 빌드 | docker buildx | Apple Silicon(ARM) → linux/amd64 멀티아치 빌드 |
+
+### 14.2 배포 흐름
+
+1. **프론트엔드 빌드**: `npm run build` → Spring Boot `static/` 폴더로 복사
+2. **Docker 단일 컨테이너 빌드**: 프론트 + 백엔드 통합
+3. **ECR 푸시**: Docker 이미지를 AWS ECR에 업로드
+4. **ECS 서비스 재배포**: `--force-new-deployment` 플래그로 강제 재배포
+
+### 14.3 배포 URL
+
+| 환경 | 주소 | 비고 |
+|------|------|------|
+| 로컬 개발 | `http://localhost:3000` | Vite 개발 서버 |
+| AWS (EC2) | `http://<AWS_EC2_PUBLIC_IP>:8080` | Spring Boot 컨테이너 |
+
+---
+
+**마지막 업데이트**: 2026-07-10  
 **담당**: Backend + Frontend Team  
 **리뷰**: 필요시 월 1회
