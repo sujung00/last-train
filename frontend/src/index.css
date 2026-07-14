@@ -1,18 +1,29 @@
 @import "tailwindcss";
 
 /* ════════════════════════════════════════════════════════════════════════════
-   핸드폰 화면 통일 스타일
+   신뢰감 있는 컬러 팔레트 (AI 바이브 제거)
    ════════════════════════════════════════════════════════════════════════════ */
 
 :root {
   /* 핸드폰 레이아웃 기본값 (iPhone 비율: 430x844px) */
   --phone-max-width: 430px;
   --phone-height: 844px;
-  --phone-bg-outer: #d1d5db; /* 바깥 배경 (연한 회색) */
-  --phone-bg-inner: #1a1a2e; /* 앱 내부 배경 (어두운 배경) */
+  --phone-bg-outer: #f3f4f6; /* 바깥 배경 */
+  --phone-bg-inner: #ffffff; /* 앱 내부 배경 (화이트) */
   --phone-border-radius: 0.5rem; /* 모서리 반경 */
   --phone-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25); /* 그림자 */
   --phone-padding: 1rem; /* 반응형 패딩 */
+
+  /* 새로운 컬러 시스템 (신뢰감 중심) */
+  --color-primary: #1f2937; /* Primary: 진회색 (헤더, 강조) */
+  --color-secondary: #0f172a; /* Secondary: 깊은 네이비 */
+  --color-accent: #0891b2; /* Accent: 청록색 (부가 정보) */
+  --color-success: #059669; /* Success: 초록 (탑승 가능) */
+  --color-alert: #dc2626; /* Alert: 빨강 (탑승 불가) */
+  --color-warning: #f59e0b; /* Warning: 주황 (주의) */
+  --color-neutral-dark: #111827; /* 텍스트 - 진짜 검정 */
+  --color-neutral-light: #f9fafb; /* 배경 - 진짜 흰색 */
+  --color-border: #e5e7eb; /* 테두리 */
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -29,7 +40,7 @@
 
 .phone-app-inner {
   width: 100%;
-  max-width: var(--phone-max-width);
+  max-width: 390px;
   height: var(--phone-height);
   background-color: var(--phone-bg-inner);
   border-radius: var(--phone-border-radius);
@@ -37,17 +48,19 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
    Routes 컨테이너 (내부 스크롤 처리)
-   탭바가 고정되어 있으므로 padding-bottom으로 공간 확보 (탭바 높이만큼)
+   탭바가 절대 위치 (phone-app-inner 기준)에 있으므로 padding-bottom으로 공간 확보
    ──────────────────────────────────────────────────────────────────────────── */
 .phone-app-routes {
   width: 100%;
   flex: 1;
   overflow-y: auto;
   padding-bottom: 60px;
+  position: relative;
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -87,7 +100,7 @@
   position: sticky;
   top: 0;
   background-color: var(--phone-bg-inner);
-  border-bottom: 1px solid #374151;
+  border-bottom: 1px solid #e5e7eb;
   padding: 1rem;
 }
 

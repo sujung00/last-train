@@ -171,10 +171,10 @@ export default function PlaceSearchModal({ mode, onSelect, onClose }) {
         {/* 헤더 */}
         <div className="phone-modal-header">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-white text-lg font-bold">{title}</h2>
+            <h2 className="text-gray-900 text-lg font-bold">{title}</h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-200 transition text-2xl"
+              className="text-gray-500 hover:text-gray-700 transition text-2xl"
             >
               ✕
             </button>
@@ -188,7 +188,7 @@ export default function PlaceSearchModal({ mode, onSelect, onClose }) {
               value={searchText}
               onChange={(e) => handleSearch(e.target.value)}
               autoFocus
-              className="w-full px-4 py-3 bg-gray-700 text-white rounded focus:outline-none focus:bg-gray-600 transition placeholder-gray-400"
+              className="w-full px-4 py-3 bg-gray-50 text-gray-900 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-gray-400"
             />
           </div>
         </div>
@@ -198,13 +198,13 @@ export default function PlaceSearchModal({ mode, onSelect, onClose }) {
           {/* 로딩 상태 */}
           {loading && (
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border border-gray-700 border-t-[#6366f1]"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-gray-900"></div>
             </div>
           )}
 
           {/* 에러 메시지 */}
           {error && !loading && (
-            <div className="bg-red-500 bg-opacity-20 border border-red-500 text-red-200 px-4 py-3 rounded">
+            <div className="bg-red-50 border border-red-200 text-red-900 px-4 py-3 rounded">
               {error}
             </div>
           )}
@@ -212,7 +212,7 @@ export default function PlaceSearchModal({ mode, onSelect, onClose }) {
           {/* 검색 결과 없음 */}
           {!loading && !error && searchText.trim() && results.length === 0 && (
             <div className="text-center py-8">
-              <p className="text-gray-400 text-sm">검색 결과가 없어요</p>
+              <p className="text-gray-500 text-sm">검색 결과가 없습니다</p>
             </div>
           )}
 
@@ -223,12 +223,12 @@ export default function PlaceSearchModal({ mode, onSelect, onClose }) {
                 <button
                   key={index}
                   onClick={() => handleSelectPlace(place)}
-                  className="w-full text-left px-4 py-4 bg-gray-800 hover:bg-gray-700 rounded transition border border-gray-700 hover:border-gray-600"
+                  className="w-full text-left px-4 py-4 bg-gray-50 hover:bg-gray-100 rounded transition border border-gray-200 hover:border-gray-300"
                 >
-                  <div className="text-white font-medium text-sm">{place.name}</div>
-                  <div className="text-gray-400 text-xs mt-1">{place.address}</div>
+                  <div className="text-gray-900 font-medium text-sm">{place.name}</div>
+                  <div className="text-gray-500 text-xs mt-1">{place.address}</div>
                   {place.phone && (
-                    <div className="text-gray-500 text-xs mt-1">{place.phone}</div>
+                    <div className="text-gray-400 text-xs mt-1">{place.phone}</div>
                   )}
                 </button>
               ))}

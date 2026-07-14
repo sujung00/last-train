@@ -46,11 +46,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="h-full bg-[#1a1a2e] flex items-center justify-center px-4 relative">
+    <div className="h-full bg-white flex items-center justify-center px-4 relative">
       {/* 뒤로가기 버튼 */}
       <button
         onClick={() => navigate(-1)}
-        className="absolute top-4 left-4 text-gray-300 hover:text-white transition text-sm"
+        className="absolute top-4 left-4 text-gray-600 hover:text-gray-900 transition text-sm"
       >
         ← 뒤로
       </button>
@@ -58,28 +58,28 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* 타이틀 */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-white mb-2">막차알리미 🚂</h1>
-          <p className="text-gray-300">오늘도 막차 놓치지 마세요</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">막차알리미</h1>
+          <p className="text-gray-600">마지막 한 대를 놓치지 마세요</p>
         </div>
 
         {/* 로그인 폼 */}
         <form onSubmit={handleLogin} className="space-y-4">
           {/* 에러 메시지 */}
           {error && (
-            <div className="bg-red-900 bg-opacity-50 border border-red-600 text-red-200 px-4 py-3 rounded">
+            <div className="bg-red-50 border border-red-200 text-red-900 px-4 py-3 rounded">
               {error}
             </div>
           )}
 
           {/* 이메일 입력 */}
           <div>
-            <label className="block text-white text-sm font-medium mb-2">이메일</label>
+            <label className="block text-gray-900 text-sm font-medium mb-2">이메일</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="example@email.com"
-              className="w-full px-4 py-3 bg-gray-700 text-white rounded focus:outline-none focus:bg-gray-600 transition"
+              className="w-full px-4 py-3 bg-gray-50 text-gray-900 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
               required
               disabled={loading}
             />
@@ -87,13 +87,13 @@ export default function LoginPage() {
 
           {/* 비밀번호 입력 */}
           <div>
-            <label className="block text-white text-sm font-medium mb-2">비밀번호</label>
+            <label className="block text-gray-900 text-sm font-medium mb-2">비밀번호</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="비밀번호를 입력하세요"
-              className="w-full px-4 py-3 bg-gray-700 text-white rounded focus:outline-none focus:bg-gray-600 transition"
+              className="w-full px-4 py-3 bg-gray-50 text-gray-900 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
               required
               disabled={loading}
             />
@@ -103,7 +103,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#6366f1] hover:bg-[#4338ca] text-white font-bold py-3 rounded transition disabled:bg-gray-600 disabled:cursor-not-allowed"
+            className="w-full bg-gray-900 hover:bg-black text-white font-bold py-3 rounded transition disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             {loading ? '로그인 중...' : '로그인'}
           </button>
@@ -111,24 +111,24 @@ export default function LoginPage() {
 
         {/* 구분선 */}
         <div className="flex items-center my-6">
-          <div className="flex-grow border-t border-gray-600"></div>
-          <span className="px-3 text-gray-400 text-sm">또는</span>
-          <div className="flex-grow border-t border-gray-600"></div>
+          <div className="flex-grow border-t border-gray-300"></div>
+          <span className="px-3 text-gray-500 text-sm">또는</span>
+          <div className="flex-grow border-t border-gray-300"></div>
         </div>
 
         {/* 카카오로 로그인 버튼 */}
         <button
           onClick={handleKakaoLogin}
           disabled={loading}
-          className="w-full bg-[#FEE500] hover:bg-yellow-300 text-black font-bold py-3 rounded transition disabled:bg-gray-600 disabled:cursor-not-allowed"
+          className="w-full bg-[#FEE500] hover:bg-yellow-300 text-black font-bold py-3 rounded transition disabled:bg-gray-400 disabled:cursor-not-allowed"
         >
           카카오로 로그인
         </button>
 
         {/* 회원가입 링크 */}
         <div className="text-center mt-6">
-          <span className="text-gray-400">계정이 없으신가요? </span>
-          <Link to="/signup" className="text-[#6366f1] hover:text-[#a5b4fc] font-medium transition">
+          <span className="text-gray-600">계정이 없으신가요? </span>
+          <Link to="/signup" className="text-gray-900 hover:text-black font-medium transition">
             회원가입
           </Link>
         </div>
