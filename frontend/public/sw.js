@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-globals */
 /**
  * Service Worker: 웹 푸시 알림 수신 및 처리
  *
@@ -25,7 +26,7 @@ self.addEventListener('push', (event) => {
         ...data, // 백엔드에서 보낸 title, body 등으로 덮어쓰기
       }
     }
-  } catch (err) {
+  } catch {
     // JSON 파싱 실패 시 기본값 사용
     if (event.data) {
       notificationData.body = event.data.text()
@@ -68,6 +69,6 @@ self.addEventListener('notificationclick', (event) => {
 })
 
 // ── notificationclose 이벤트: 알림이 닫힐 때 처리 (선택사항) ────────────────────
-self.addEventListener('notificationclose', (event) => {
+self.addEventListener('notificationclose', () => {
   // 필요시 백엔드에 알림 닫힘 로그 전송 가능
 })
