@@ -187,7 +187,7 @@ jobs:
         with:
           task-definition: task-definition.json
           container-name: ${{ secrets.ECS_CONTAINER_NAME }}
-          image: ${{ needs.docker-build-push.outputs.image }}
+          image: ${{ secrets.ECR_REGISTRY }}/last-train-app:${{ needs.docker-build-push.outputs.image-tag }}
 
       - name: Register new ECS task definition
         id: register-task
