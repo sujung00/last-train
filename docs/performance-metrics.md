@@ -135,43 +135,6 @@
 
 ---
 
-## 5. 이력서 기재 문구
-
-### 📝 한국어 버전 (추천)
-
-**프로젝트명: 막차알리미 (Late Train Alert)**
-
-**성과:**
-```
-ODsay·서울버스·경기버스 3종 외부 API를 통합하고,
-API 장애 시 DB Fallback 자동 전환 구조를 설계하여
-서비스 가용성 97.44% · 평균 응답 시간 15ms 달성
-```
-
-### 📝 영문 버전
-
-```
-Integrated 3 transit APIs (ODsay, Seoul Bus, Gyeonggi Bus)
-and designed automatic DB fallback mechanism for API failures,
-achieving 97.44% service availability with 15ms average response time
-```
-
-### 📝 상세 버전 (면접용)
-
-```
-• ODsay·서울버스·경기버스 3종 외부 API 통합
-  → 지하철/서울시내버스/경기도버스 막차 시각 실시간 조회
-
-• 외부 API 장애 시 자동 Fallback 구조 설계
-  → DB에 사전 저장된 데이터로 서비스 연속성 보장
-  → 97.44% API 성공률, Fallback 발생 시 즉시 DB 전환
-
-• 성능 최적화
-  → 외부 API 평균 응답 시간: 15.68ms
-  → DB Fallback 응답 시간: 7.78ms
-  → 352회 대규모 테스트로 안정성 검증
-```
-
 ---
 
 ## 6. 기술 구현 세부사항
@@ -284,20 +247,6 @@ curl -X POST http://localhost:8080/admin/transit/metrics/reset
 - 외부 API 응답: 15.68ms
 - DB Fallback 응답: 7.78ms
 - 352회 테스트 검증
-
-### 💼 이력서 활용도
-
-**강점:**
-- 외부 API 통합 경험 (3종)
-- 장애 대응 설계 능력 (Fallback 구조)
-- 성능 측정 및 최적화 (AtomicInteger 동시성)
-- 대규모 테스트 (352회 호출)
-
-**면접 질문 대비:**
-1. "Fallback 구조를 설계한 이유?" → API 장애 시 서비스 연속성 보장
-2. "응답 시간을 어떻게 측정했나?" → System.currentTimeMillis()로 HTTP 호출 전후 측정
-3. "동시성 문제를 어떻게 해결했나?" → AtomicInteger/AtomicLong 사용
-4. "성능 개선 방향?" → DB Fallback 초기 적재 강화, 캐시 갱신 스케줄러 최적화
 
 ---
 
