@@ -1,55 +1,37 @@
 spring:
-  # ── DataSource ──────────────────────────────────────────────────────────────
-  # TestContainers가 @DynamicPropertySource로 url/username/password를 주입하므로
-  # 여기서는 값을 지정하지 않는다.
   datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-
-  # ── JPA ─────────────────────────────────────────────────────────────────────
+    url: jdbc:mysql://localhost:3306/test?useSSL=false&serverTimezone=Asia/Seoul
+    username: root
+    password: test
   jpa:
     hibernate:
-      # create-drop: 테스트 시작 시 테이블 생성, 종료 시 삭제
-      # 매 테스트 컨텍스트마다 깨끗한 스키마 보장
       ddl-auto: create-drop
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-        jdbc:
-          time_zone: Asia/Seoul
 
-  # ── Redis ────────────────────────────────────────────────────────────────────
-  # 단위 테스트: Redis 의존성 없는 테스트는 이 설정 그대로 사용
-  # Redis 통합 테스트 필요 시: testcontainers:redpanda 또는 embedded-redis 추가 후
-  # @DynamicPropertySource로 host/port를 동적 주입
-  data:
-    redis:
-      host: localhost
-      port: 6379
-
-# ── JWT ───────────────────────────────────────────────────────────────────────
-# 테스트용 더미값 — 실제 서비스에 사용 금지
 jwt:
-  secret: test-secret-key-must-be-at-least-32-characters-long
-  access-token-expiry: 1800000    # 30분 (밀리초)
-  refresh-token-expiry: 604800000 # 7일  (밀리초)
+  secret: test-secret-key-at-least-32-characters-long
+  access-token-expiry: 1800000
+  refresh-token-expiry: 604800000
 
-# ── ODsay API ─────────────────────────────────────────────────────────────────
-# 테스트용 더미값 — 실제 ODsay 호출이 필요한 테스트는 Mock 사용
 odsay:
-  api-key: test-odsay-api-key
+  api-key: test-key
   base-url: https://api.odsay.com/v1/api
 
-# ── Kakao OAuth2.0 ────────────────────────────────────────────────────────────
-# 테스트용 더미값 — 실제 카카오 호출이 필요한 테스트는 Mock 사용
 kakao:
-  client-id: test-kakao-client-id
-  client-secret: test-kakao-client-secret
+  client-id: test-id
+  client-secret: test-secret
   redirect-uri: http://localhost:3000/auth/kakao/callback
 
-# ── VAPID (Web Push) ──────────────────────────────────────────────────────────
-# 테스트용 더미값 — 실제 Push 발송이 필요한 테스트는 Mock 사용
+seoul:
+  bus:
+    api-key: test-key
+    base-url: http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteAll
+
+gyeonggi:
+  bus:
+    api-key: test-key
+    route-base-url: https://apis.data.go.kr/6410000/busrouteservice/v2/getBusRouteInfoItemv2
+
 vapid:
-  public-key: BTest1234567890TestPublicKeyForVapidTestingOnlyNotRealKey12345
-  private-key: test-private-key-for-vapid-testing-only-not-real
-  subject: mailto:test@example.com
+  public-key: test-public-key
+  private-key: test-private-key
+  subject: mailto:test@test.com
