@@ -74,10 +74,8 @@ class TransitCacheServiceTest {
     private static final String DAY_TYPE_CONVERTED = "WEEKDAY";
     private static final String LAST_TIME = "23:45";
 
-    private static final String SEOUL_BUS_ST_ID = "124000414";
     private static final String SEOUL_BUS_ROUTE_ID = "100100578";
-    private static final String SEOUL_BUS_ORD = "29";
-    private static final String SEOUL_BUS_CACHE_KEY = "124000414:100100578:29";
+    private static final String SEOUL_BUS_CACHE_KEY = "100100578";
 
     private static final String GYEONGGI_BUS_ROUTE_ID = "200000037";
 
@@ -217,17 +215,17 @@ class TransitCacheServiceTest {
     void getSeoulBusLastTime_API_성공_DB_저장() {
         // given: 서울버스 API가 LocalDateTime을 반환합니다.
         LocalDateTime mockTime = LocalDateTime.parse("2026-07-02T23:45:00");
-        when(seoulBusArrivalClient.getLastBusTime(SEOUL_BUS_ST_ID, SEOUL_BUS_ROUTE_ID, SEOUL_BUS_ORD))
+        when(seoulBusArrivalClient.getLastBusTime(SEOUL_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY))
                 .thenReturn(mockTime);
 
         // when: 서울버스 막차 시각을 조회합니다.
         String result = transitCacheService.getSeoulBusLastTime(
-                SEOUL_BUS_ST_ID, SEOUL_BUS_ROUTE_ID, SEOUL_BUS_ORD, DAY_TYPE_WEEKDAY);
+                SEOUL_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY);
 
         // then: 정상값이 반환되고, DB 저장이 1회 호출되어야 합니다.
         assertThat(result).isEqualTo("23:45");                                         // 응답 값이 정상인지
         verify(seoulBusArrivalClient, times(1))
-                .getLastBusTime(SEOUL_BUS_ST_ID, SEOUL_BUS_ROUTE_ID, SEOUL_BUS_ORD); // API 호출 1회
+                .getLastBusTime(SEOUL_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY);               // API 호출 1회
         verify(transitCacheWriter, times(1))
                 .saveOrUpdate("BUS_SEOUL", SEOUL_BUS_CACHE_KEY, DAY_TYPE_CONVERTED, "23:45"); // DB 저장 1회
     }
@@ -245,7 +243,7 @@ class TransitCacheServiceTest {
     @DisplayName("getSeoulBusLastTime() - API 실패 → DB Fallback 값 반환")
     void getSeoulBusLastTime_API_실패_DB_Fallback_반환() {
         // given: API가 null을 반환합니다.
-        when(seoulBusArrivalClient.getLastBusTime(SEOUL_BUS_ST_ID, SEOUL_BUS_ROUTE_ID, SEOUL_BUS_ORD))
+        when(seoulBusArrivalClient.getLastBusTime(SEOUL_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY))
                 .thenReturn(null);
 
         // DB에는 이전 저장값이 있습니다.
@@ -263,12 +261,12 @@ class TransitCacheServiceTest {
 
         // when: 서울버스 막차 시각을 조회합니다.
         String result = transitCacheService.getSeoulBusLastTime(
-                SEOUL_BUS_ST_ID, SEOUL_BUS_ROUTE_ID, SEOUL_BUS_ORD, DAY_TYPE_WEEKDAY);
+                SEOUL_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY);
 
         // then: DB Fallback 값이 반환되고, DB 저장은 호출되지 않아야 합니다.
         assertThat(result).isEqualTo("23:40");                                         // Fallback 값이 반환되는지
         verify(seoulBusArrivalClient, times(1))
-                .getLastBusTime(SEOUL_BUS_ST_ID, SEOUL_BUS_ROUTE_ID, SEOUL_BUS_ORD); // API 호출 1회 (시도)
+                .getLastBusTime(SEOUL_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY);               // API 호출 1회 (시도)
         verify(transitCacheWriter, never())
                 .saveOrUpdate(anyString(), anyString(), anyString(), anyString());   // DB 저장은 호출 안 됨
         verify(lastTransitScheduleRepository, times(1))
@@ -426,7 +424,7 @@ class TransitCacheServiceTest {
     @DisplayName("getSeoulBusLastTime() - 예외 발생(RuntimeException) → DB Fallback 시도")
     void getSeoulBusLastTime_예외_발생_DB_Fallback() {
         // given: API가 예외를 던집니다.
-        when(seoulBusArrivalClient.getLastBusTime(SEOUL_BUS_ST_ID, SEOUL_BUS_ROUTE_ID, SEOUL_BUS_ORD))
+        when(seoulBusArrivalClient.getLastBusTime(SEOUL_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY))
                 .thenThrow(new RuntimeException("API 연결 오류"));
 
         // DB에는 이전 저장값이 있습니다.
@@ -444,12 +442,12 @@ class TransitCacheServiceTest {
 
         // when: 서울버스 막차 시각을 조회합니다.
         String result = transitCacheService.getSeoulBusLastTime(
-                SEOUL_BUS_ST_ID, SEOUL_BUS_ROUTE_ID, SEOUL_BUS_ORD, DAY_TYPE_WEEKDAY);
+                SEOUL_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY);
 
         // then: DB Fallback 값이 반환되어야 합니다.
         assertThat(result).isEqualTo("23:35");                                         // Fallback 값이 반환되는지
         verify(seoulBusArrivalClient, times(1))
-                .getLastBusTime(SEOUL_BUS_ST_ID, SEOUL_BUS_ROUTE_ID, SEOUL_BUS_ORD); // API 호출 시도
+                .getLastBusTime(SEOUL_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY);               // API 호출 시도
         verify(transitCacheWriter, never())
                 .saveOrUpdate(anyString(), anyString(), anyString(), anyString());   // DB 저장은 호출 안 됨
         verify(lastTransitScheduleRepository, times(1))
