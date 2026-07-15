@@ -1,0 +1,294 @@
+name: CI/CD Pipeline - Last Train Notifier
+
+on:
+  push:
+    branches:
+      - develop
+
+env:
+  REGISTRY: ${{ secrets.ECR_REGISTRY }}
+  IMAGE_NAME: last-train-app
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # ════════════════════════════════════════════════════════════════════════════
+  # 1. 백엔드 테스트
+  # ════════════════════════════════════════════════════════════════════════════
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'eclipse-temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        working-directory: ./backend
+        run: chmod +x gradlew
+
+      - name: Run backend tests
+        working-directory: ./backend
+        run: ./gradlew test --no-daemon
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: backend/build/reports/tests/test/
+          retention-days: 7
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # 2. 프론트엔드 린트 & 빌드 검증
+  # ════════════════════════════════════════════════════════════════════════════
+  frontend-build:
+    name: Frontend Build Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: ./frontend
+        run: npm run lint
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist/
+          retention-days: 1
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # 3. Docker 빌드 및 ECR 푸시
+  # ════════════════════════════════════════════════════════════════════════════
+  docker-build-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-build]
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+      image-tag: ${{ steps.image.outputs.tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download frontend build
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist/
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+
+      - name: Generate image tag
+        id: image
+        run: |
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          GIT_SHA=${{ github.sha }}
+          GIT_SHA_SHORT=${GIT_SHA:0:7}
+          TAG="${TIMESTAMP}-${GIT_SHA_SHORT}"
+          IMAGE="${{ steps.login-ecr.outputs.registry }}/${IMAGE_NAME}:${TAG}"
+          IMAGE_LATEST="${{ steps.login-ecr.outputs.registry }}/${IMAGE_NAME}:latest"
+
+          echo "image=${IMAGE}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "image-latest=${IMAGE_LATEST}" >> $GITHUB_OUTPUT
+          echo "registry=${{ steps.login-ecr.outputs.registry }}" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.image.outputs.image }}
+            ${{ steps.image.outputs.image-latest }}
+          cache-from: type=registry,ref=${{ steps.image.outputs.image-latest }}
+          cache-to: type=inline
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+
+      - name: Print image URI
+        run: |
+          echo "::notice title=Docker Image::Built and pushed: ${{ steps.image.outputs.image }}"
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # 4. AWS ECS 배포
+  # ════════════════════════════════════════════════════════════════════════════
+  deploy-ecs:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    needs: docker-build-push
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECS task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ secrets.ECS_TASK_DEFINITION }} \
+            --region ${{ env.AWS_REGION }} \
+            --query 'taskDefinition' > task-definition.json
+
+      - name: Update ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ secrets.ECS_CONTAINER_NAME }}
+          image: ${{ needs.docker-build-push.outputs.image }}
+
+      - name: Register new ECS task definition
+        id: register-task
+        run: |
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://${{ steps.task-def.outputs.task-definition }} \
+            --region ${{ env.AWS_REGION }} \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "task-def-arn=${TASK_DEF_ARN}" >> $GITHUB_OUTPUT
+          echo "::notice title=Task Definition::Registered: ${TASK_DEF_ARN}"
+
+      - name: Update ECS service
+        run: |
+          aws ecs update-service \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --service ${{ secrets.ECS_SERVICE_NAME }} \
+            --task-definition ${{ steps.register-task.outputs.task-def-arn }} \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for ECS service deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --services ${{ secrets.ECS_SERVICE_NAME }} \
+            --region ${{ env.AWS_REGION }}
+        timeout-minutes: 10
+
+      - name: Get ECS service info
+        run: |
+          TASK_COUNT=$(aws ecs describe-services \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --services ${{ secrets.ECS_SERVICE_NAME }} \
+            --region ${{ env.AWS_REGION }} \
+            --query 'services[0].runningCount' \
+            --output text)
+          echo "::notice title=Deployment Success::Running tasks: ${TASK_COUNT}"
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # 5. 배포 알림
+  # ════════════════════════════════════════════════════════════════════════════
+  notify:
+    name: Send Deployment Notification
+    runs-on: ubuntu-latest
+    needs: deploy-ecs
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine deployment status
+        id: status
+        run: |
+          if [ "${{ needs.deploy-ecs.result }}" == "success" ]; then
+            echo "status=✅ SUCCESS"
+            echo "color=good"
+          else
+            echo "status=❌ FAILED"
+            echo "color=danger"
+          fi >> $GITHUB_OUTPUT
+
+      - name: Send Slack notification
+        if: secrets.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "Last Train Notifier - CI/CD Pipeline ${{ steps.status.outputs.status }}",
+              "attachments": [
+                {
+                  "color": "${{ steps.status.outputs.color }}",
+                  "fields": [
+                    {
+                      "title": "Repository",
+                      "value": "${{ github.repository }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Branch",
+                      "value": "${{ github.ref_name }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Commit",
+                      "value": "<${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>"
+                    },
+                    {
+                      "title": "Author",
+                      "value": "${{ github.actor }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Image",
+                      "value": "${{ needs.docker-build-push.outputs.image }}"
+                    }
+                  ],
+                  "footer": "GitHub Actions",
+                  "ts": $(date +%s)
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
