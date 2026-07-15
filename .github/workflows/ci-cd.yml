@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ${{ secrets.ECR_REGISTRY }}
-  IMAGE_NAME: last-train-app
+  IMAGE_NAME: last-train
   AWS_REGION: ${{ secrets.AWS_REGION }}
 
 permissions:
