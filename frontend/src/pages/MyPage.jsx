@@ -13,13 +13,12 @@ import api from '../api/axios' // 계정 삭제 API 호출용
  */
 export default function MyPage() {
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [email] = useState(() => localStorage.getItem('userEmail') || '')
   const [error, setError] = useState('')
   const [loggingOut, setLoggingOut] = useState(false)
   const [withdrawing, setWithdrawing] = useState(false)
   const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false)
-  const [provider, setProvider] = useState('')
+  const [provider] = useState(() => localStorage.getItem('userProvider') || '')
 
   useEffect(() => {
     // 비로그인 상태 체크
@@ -28,17 +27,6 @@ export default function MyPage() {
       navigate('/login', { replace: true })
       return
     }
-
-    // localStorage에서 provider와 userEmail 가져오기
-    const userProvider = localStorage.getItem('userProvider')
-    const savedEmail = localStorage.getItem('userEmail')
-
-    // provider 저장
-    setProvider(userProvider || '')
-
-    // 이메일 표시 (provider에 관계없이 userEmail 사용)
-    setEmail(savedEmail || '')
-    setLoading(false)
   }, [navigate])
 
   const handleLogout = async () => {
@@ -53,7 +41,7 @@ export default function MyPage() {
       window.dispatchEvent(new Event('authChange'))
       // 로그아웃 후 /login으로 이동
       navigate('/login', { replace: true })
-    } catch (err) {
+    } catch {
       setError('로그아웃 중 오류가 발생했습니다')
       setLoggingOut(false)
     }

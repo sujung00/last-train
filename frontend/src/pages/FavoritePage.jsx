@@ -22,9 +22,9 @@ import PlaceSearchModal from '../components/PlaceSearchModal'
  */
 export default function FavoritePage() {
   const navigate = useNavigate()
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isLoggedIn] = useState(() => !!localStorage.getItem('accessToken'))
   const [favorites, setFavorites] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [querying, setQuerying] = useState(false)
   const [queryError, setQueryError] = useState('')
@@ -47,13 +47,6 @@ export default function FavoritePage() {
   const [selectedPlace, setSelectedPlace] = useState(null)
   const [showAddEmojiSelector, setShowAddEmojiSelector] = useState(false)
   const [adding, setAdding] = useState(false)
-
-  // T-002: 로그인 상태 확인
-  useEffect(() => {
-    const token = localStorage.getItem('accessToken')
-    setIsLoggedIn(!!token)
-    setLoading(false)
-  }, [])
 
   // T-001: GET /api/v1/favorites 호출 (로그인 시에만)
   useEffect(() => {
@@ -104,7 +97,6 @@ export default function FavoritePage() {
 
   // T-006: EmojiSelectorModal에서 이모지 선택 후 즐겨찾기 추가 (T-007: alert 제거)
   const handleSelectAddEmoji = async (emoji) => {
-    const token = localStorage.getItem('accessToken')
     setShowAddEmojiSelector(false)
     setAdding(true)
     setError('')
@@ -112,7 +104,7 @@ export default function FavoritePage() {
     try {
       // POST /api/v1/favorites 호출
       // (ResultPage.jsx와 동일한 형식)
-      const response = await api.post('/api/v1/favorites', {
+      await api.post('/api/v1/favorites', {
         name: selectedPlace.name,
         emoji: emoji,
         lat: selectedPlace.lat,

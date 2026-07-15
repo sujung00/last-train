@@ -25,12 +25,8 @@ export default function BottomTabBar() {
     return !!token
   })
 
-  // 마운트 시 초기값 재확인 + authChange 커스텀 이벤트 + storage 이벤트 감지
+  // authChange 커스텀 이벤트 + storage 이벤트 감지
   useEffect(() => {
-    // 마운트 시 현재 localStorage 상태 반영
-    const token = localStorage.getItem('accessToken')
-    setIsLoggedIn(!!token)
-
     // 같은 탭 내 로그인/로그아웃 감지 (커스텀 이벤트)
     const handleAuthChange = () => {
       const token = localStorage.getItem('accessToken')

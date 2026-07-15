@@ -1,4 +1,3 @@
-/* eslint-disable no-restricted-globals */
 /* global clients */
 /**
  * Service Worker: 웹 푸시 알림 수신 및 처리
