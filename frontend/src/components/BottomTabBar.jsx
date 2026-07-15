@@ -14,6 +14,7 @@ import { useState, useEffect } from 'react'
  *   - 로그인: "마이" → /mypage
  * - 현재 페이지에 active 스타일 적용
  * - localStorage 변화를 실시간으로 감지
+ * - iOS safe area 처리 (padding-bottom)
  */
 export default function BottomTabBar() {
   const location = useLocation()
@@ -54,19 +55,51 @@ export default function BottomTabBar() {
 
   if (!shouldShowTabBar) return null
 
+  // 탭 설정
   const tabs = [
-    { label: '홈', path: '/', emoji: '🏠' },
-    { label: '즐겨찾기', path: '/favorites', emoji: '⭐' },
+    { label: '홈', path: '/', icon: 'home' },
+    { label: '즐겨찾기', path: '/favorites', icon: 'star' },
     {
       label: isLoggedIn ? '마이' : '로그인',
       path: isLoggedIn ? '/mypage' : '/login',
-      emoji: isLoggedIn ? '👤' : '🔐',
+      icon: isLoggedIn ? 'user' : 'login',
     },
   ]
 
+  const getIconSVG = (icon) => {
+    switch (icon) {
+      case 'home':
+        return (
+          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+          </svg>
+        )
+      case 'star':
+        return (
+          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2l-2.81 6.63L2 9.24l5.46 4.73L5.82 21z" />
+          </svg>
+        )
+      case 'user':
+        return (
+          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+          </svg>
+        )
+      case 'login':
+        return (
+          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h2V15h-2zm0-8h2V13h-2z" />
+          </svg>
+        )
+      default:
+        return null
+    }
+  }
+
   const handleTabClick = (tab) => {
     // 마이/로그인 탭은 매번 최신 localStorage 상태 확인
-    if (tab.emoji === '👤' || tab.emoji === '🔐') {
+    if (tab.icon === 'user' || tab.icon === 'login') {
       const token = localStorage.getItem('accessToken')
       navigate(token ? '/mypage' : '/login')
     } else {
@@ -75,21 +108,21 @@ export default function BottomTabBar() {
   }
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-[#1a1a2e] border-t border-gray-700 flex justify-around items-center h-[60px] z-40 rounded-b-lg">
+    <div className="absolute bottom-0 left-0 right-0 w-full bg-white border-t border-gray-200 flex justify-around items-center h-[60px] z-40">
       {tabs.map((tab) => {
         const isActive = location.pathname === tab.path
         return (
           <button
             key={tab.path}
             onClick={() => handleTabClick(tab)}
-            className={`flex-1 flex flex-col items-center justify-center h-full gap-1 transition ${
+            className={`flex-1 flex flex-col items-center justify-center h-full gap-1 transition-colors ${
               isActive
-                ? 'border-t-2 border-t-[#6366f1]'
-                : 'text-gray-400 hover:text-gray-300'
+                ? 'text-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
             }`}
-            style={isActive ? { color: '#6366f1' } : {}}
+            title={tab.label}
           >
-            <span className="text-lg">{tab.emoji}</span>
+            {getIconSVG(tab.icon)}
             <span className="text-xs font-medium">{tab.label}</span>
           </button>
         )

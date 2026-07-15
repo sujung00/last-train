@@ -302,17 +302,18 @@ export default function ResultPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#1a1a2e] flex flex-col">
+    <div className="min-h-screen bg-white flex flex-col">
       {/* 헤더 */}
-      <header className="bg-[#1a1a2e] border-b border-gray-700 px-4 py-6 sticky top-0 z-10">
+      <header className="bg-white border-b border-gray-200 px-4 py-6 sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">막차알리미 🚂</h1>
-            <p className="text-gray-400 text-sm mt-1">조회 결과</p>
+            <h1 className="text-2xl font-bold text-gray-900">조회 결과</h1>
+            <p className="text-gray-500 text-sm mt-1">지금 출발하면 탑승 가능합니다</p>
           </div>
           <button
             onClick={() => navigate('/')}
-            className="px-3 py-2 text-sm text-gray-300 hover:text-white transition"
+            className="px-3 py-2 text-sm text-gray-500 hover:text-gray-900 transition"
+            title="닫기"
           >
             ✕
           </button>
@@ -323,38 +324,36 @@ export default function ResultPage() {
       <main className="flex-1 px-4 py-6 overflow-y-auto">
         {/* 출발지 = 도착지 경고 배너 (EC-007) */}
         {sameOriginDest && (
-          <div className="mb-6 text-sm text-yellow-200 bg-yellow-900 bg-opacity-50 px-4 py-3 rounded border border-yellow-600">
-            ⚠️ 출발지와 도착지가 같아요
+          <div className="mb-6 text-sm text-amber-900 bg-amber-50 px-4 py-3 rounded border border-amber-200">
+            출발지와 도착지가 같습니다. 다시 확인해주세요.
           </div>
         )}
 
         {/* 출발지/도착지 요약 헤더 */}
-        <div className="mb-6 bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <div className="text-gray-400 text-xs mb-1">경로</div>
-          <div className="text-white font-bold text-lg">
-            {origin} <span className="text-[#6366f1]">→</span> {destination}
+        <div className="mb-6 bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <div className="text-gray-600 text-xs font-semibold mb-2 uppercase tracking-wide">경로</div>
+          <div className="text-gray-900 font-bold text-lg">
+            {origin} <span className="text-gray-400">→</span> {destination}
           </div>
-          <div className="text-gray-400 text-xs mt-2">
-            {date} ({dayType === 'WEEKDAY' ? '평일' : dayType === 'SAT' ? '토요일' : '일요일'})
+          <div className="text-gray-500 text-xs mt-2">
+            {date} • {dayType === 'WEEKDAY' ? '평일' : dayType === 'SAT' ? '토요일' : '일요일'}
           </div>
         </div>
 
-        {/* 막차까지 남은 시간 배너 (AC-008, FR-011) */}
-        <div className="mb-8 bg-gradient-to-r from-[#312e81] to-[#3f3b7f] rounded-lg p-6 border border-[#4338ca]">
-          <div className="text-center">
-            <div className="text-[#a5b4fc] text-sm font-medium mb-2">막차까지 남은 시간</div>
-            <div className="text-4xl font-bold text-white mb-2">{minutesLeft}분</div>
-            <div className="text-[#c7d2fe] text-sm">{primaryMessage}</div>
-          </div>
+        {/* 막차까지 남은 시간 (AC-008, FR-011) - 시그니처 요소 */}
+        <div className="mb-8 bg-gray-900 rounded-lg p-6 text-center">
+          <div className="text-gray-400 text-sm font-medium mb-2">막차까지 남은 시간</div>
+          <div className="text-6xl font-bold text-white mb-3">{minutesLeft}</div>
+          <div className="text-gray-300 text-base">{primaryMessage}</div>
         </div>
 
         {/* 막차 시간 안내 배너 */}
-        <div className="mb-8 text-sm text-blue-200 bg-blue-900 bg-opacity-30 px-4 py-3 rounded border border-blue-700">
-          📢 막차 시간은 기점 기준 예측값으로 실제와 다를 수 있어요. 5~10분 여유를 두고 이동하세요.
+        <div className="mb-8 text-sm text-blue-900 bg-blue-50 px-4 py-3 rounded border border-blue-200">
+          막차 시간은 기점 기준 예측값으로 실제와 다를 수 있습니다. 5~10분 여유를 두고 이동하세요.
         </div>
 
         {/* 경로 카드 목록 (FR-010) */}
-        <div className="space-y-4 mb-8">
+        <div className="space-y-3 mb-8">
           {limitedRoutes.map((route, index) => (
             <RouteCard
               key={index}
@@ -371,10 +370,10 @@ export default function ResultPage() {
         {/* 경로가 없는 경우 */}
         {limitedRoutes.length === 0 && (
           <div className="text-center py-12">
-            <div className="text-gray-400 text-lg">조회된 경로가 없어요</div>
+            <div className="text-gray-600 text-lg font-medium">조회된 경로가 없습니다</div>
             <button
               onClick={() => navigate('/')}
-              className="mt-4 px-6 py-3 bg-[#6366f1] hover:bg-[#4338ca] text-white rounded-lg font-medium transition"
+              className="mt-4 px-6 py-3 bg-gray-900 hover:bg-black text-white rounded-lg font-medium transition"
             >
               다시 검색하기
             </button>
@@ -383,8 +382,8 @@ export default function ResultPage() {
 
         {/* 좌표 정보 누락 에러 */}
         {limitedRoutes.length > 0 && coordinateMissing && (
-          <div className="mb-4 text-sm text-red-200 bg-red-900 bg-opacity-50 px-4 py-3 rounded border border-red-600">
-            ❌ 도착지 정보를 가져올 수 없습니다. 다시 검색해주세요.
+          <div className="mb-4 text-sm text-red-900 bg-red-50 px-4 py-3 rounded border border-red-200">
+            도착지 정보를 가져올 수 없습니다. 다시 검색해주세요.
           </div>
         )}
 
@@ -396,10 +395,10 @@ export default function ResultPage() {
               disabled={isFavorited || isSavingFavorite || coordinateMissing}
               className={`w-full py-3 font-medium rounded-lg transition ${
                 coordinateMissing
-                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : isFavorited
-                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                  : 'bg-[#6366f1] hover:bg-[#4338ca] text-white'
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-cyan-600 hover:bg-cyan-700 text-white'
               }`}
             >
               {isSavingFavorite
@@ -408,7 +407,7 @@ export default function ResultPage() {
                 ? '즐겨찾기 등록됨'
                 : coordinateMissing
                 ? '위치 정보 오류'
-                : '이 목적지 즐겨찾기 추가'}
+                : '자주 가는 곳에 추가'}
             </button>
           </div>
         )}
@@ -417,7 +416,7 @@ export default function ResultPage() {
         {limitedRoutes.length > 0 && (
           <button
             onClick={() => navigate('/')}
-            className="w-full py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition border border-gray-700"
+            className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium rounded-lg transition border border-gray-200"
           >
             다시 검색
           </button>
@@ -436,9 +435,9 @@ export default function ResultPage() {
       {/* 알림 분 선택 모달 */}
       {showMinutesSelector && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-sm w-full border border-gray-700">
-            <h2 className="text-lg font-bold text-white mb-2">언제쯤 알림을 받을까요?</h2>
-            <p className="text-gray-300 text-sm mb-6">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full border border-gray-200">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">알림 시간 설정</h2>
+            <p className="text-gray-600 text-sm mb-6">
               막차까지 몇 분 전에 알림을 받을지 선택해주세요.
             </p>
 
@@ -448,7 +447,7 @@ export default function ResultPage() {
                   key={minutes}
                   onClick={() => handleSubscribeNotification(minutes)}
                   disabled={isSubscribingNotification}
-                  className="w-full px-4 py-3 bg-[#6366f1] hover:bg-[#4338ca] text-white rounded font-medium transition disabled:bg-gray-600 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded font-medium transition disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                   {minutes}분 전에 알림 받기
                 </button>
@@ -458,7 +457,7 @@ export default function ResultPage() {
             <button
               onClick={() => setShowMinutesSelector(false)}
               disabled={isSubscribingNotification}
-              className="w-full mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded font-medium transition disabled:bg-gray-600 disabled:cursor-not-allowed"
+              className="w-full mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded font-medium transition disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               취소
             </button>
@@ -481,27 +480,27 @@ function RouteCard({ route, index, isRecommended, isSubscribed, onNotificationCl
     <div
       className={`rounded-lg p-4 border transition ${
         isRecommended
-          ? 'bg-[#312e81] bg-opacity-20 border-[#6366f1] border-opacity-50'
-          : 'bg-gray-800 border-gray-700 hover:border-gray-600'
+          ? 'bg-gray-50 border-gray-300'
+          : 'bg-white border-gray-200 hover:border-gray-300'
       }`}
     >
       {/* 추천/대안 라벨 */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           {isRecommended && (
-            <span className="inline-block px-2 py-1 bg-[#6366f1] text-white text-xs font-bold rounded">
+            <span className="inline-block px-2 py-1 bg-gray-900 text-white text-xs font-bold rounded">
               추천
             </span>
           )}
           {!isRecommended && (
-            <span className="inline-block px-2 py-1 bg-gray-700 text-gray-300 text-xs font-medium rounded">
-              대안 {index}
+            <span className="inline-block px-2 py-1 bg-gray-200 text-gray-700 text-xs font-medium rounded">
+              선택지 {index}
             </span>
           )}
         </div>
         <div
-          className={`text-sm font-medium ${
-            canCatch ? 'text-green-400' : 'text-red-400'
+          className={`text-sm font-semibold ${
+            canCatch ? 'text-green-600' : 'text-red-600'
           }`}
         >
           {canCatch ? '탑승 가능' : '탑승 불가'}
@@ -509,15 +508,15 @@ function RouteCard({ route, index, isRecommended, isSubscribed, onNotificationCl
       </div>
 
       {/* 출발 마감 시각 */}
-      <div className="mb-3 pb-3 border-b border-gray-700">
-        <div className="text-gray-400 text-xs mb-1">출발 마감</div>
-        <div className="text-white font-bold text-xl">{departureDeadline}</div>
+      <div className="mb-3 pb-3 border-b border-gray-200">
+        <div className="text-gray-600 text-xs font-medium mb-1 uppercase tracking-wide">출발 마감</div>
+        <div className="text-gray-900 font-bold text-2xl">{departureDeadline}</div>
       </div>
 
       {/* 환승 정보 */}
       {transfers && transfers.length > 0 && (
         <div className="space-y-2">
-          <div className="text-gray-400 text-xs mb-2">경로</div>
+          <div className="text-gray-600 text-xs font-medium mb-2 uppercase tracking-wide">경로</div>
           {transfers.map((transfer, idx) => (
             <TransferSection key={idx} transfer={transfer} />
           ))}
@@ -525,14 +524,14 @@ function RouteCard({ route, index, isRecommended, isSubscribed, onNotificationCl
       )}
 
       {/* 추가 정보 */}
-      <div className="mt-3 pt-3 border-t border-gray-700 space-y-2">
+      <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
         {minutesLeft > 0 && (
-          <div className="text-gray-300 text-sm">
-            <span className="text-[#6366f1] font-medium">{minutesLeft}분</span> 내에 탑승 필요
+          <div className="text-gray-700 text-sm">
+            <span className="text-gray-900 font-semibold">{minutesLeft}분</span> 내에 탑승 필요
           </div>
         )}
         {message && (
-          <div className="text-gray-300 text-sm">{message}</div>
+          <div className="text-gray-600 text-sm">{message}</div>
         )}
       </div>
 
@@ -543,15 +542,15 @@ function RouteCard({ route, index, isRecommended, isSubscribed, onNotificationCl
           disabled={isSubscribed || isSubscribing}
           className={`w-full py-2 text-sm font-medium rounded transition ${
             isSubscribed
-              ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
               : 'bg-green-600 hover:bg-green-700 text-white'
           }`}
         >
           {isSubscribing
             ? '알림 설정 중...'
             : isSubscribed
-            ? '✅ 알림 설정됨'
-            : '🔔 알림 받기'}
+            ? '✓ 알림 설정됨'
+            : '알림 받기'}
         </button>
       </div>
     </div>
@@ -569,19 +568,19 @@ function TransferSection({ transfer }) {
   const typeLabel = type === 'SUBWAY' ? '지하철' : '버스'
 
   return (
-    <div className="bg-gray-900 bg-opacity-50 rounded p-3">
+    <div className="bg-gray-50 border border-gray-200 rounded p-3">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-lg">{typeIcon}</span>
-        <span className="text-white font-medium">{line}</span>
+        <span className="text-gray-900 font-semibold">{line}</span>
         <span className="text-gray-500 text-xs">({typeLabel})</span>
       </div>
-      <div className="text-gray-300 text-sm">
-        <div>{boardAt}</div>
-        <div className="text-gray-500 text-xs my-1">↓</div>
-        <div>{alightAt}</div>
+      <div className="text-gray-700 text-sm">
+        <div className="text-gray-900">{boardAt}</div>
+        <div className="text-gray-400 text-xs my-1">↓</div>
+        <div className="text-gray-900">{alightAt}</div>
       </div>
       {lastBoardTime && (
-        <div className="text-gray-400 text-xs mt-2">
+        <div className="text-gray-500 text-xs mt-2">
           막차 탑승: {lastBoardTime}
         </div>
       )}

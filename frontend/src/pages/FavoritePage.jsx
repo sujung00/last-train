@@ -313,16 +313,15 @@ export default function FavoritePage() {
   // T-002: 비로그인 상태 화면 (AC-002, EC-002)
   if (!isLoggedIn) {
     return (
-      <div className="h-full bg-[#1a1a2e] flex flex-col items-center justify-center px-4">
+      <div className="h-full bg-white flex flex-col items-center justify-center px-4">
         <div className="text-center">
-          <div className="text-5xl mb-4">⭐</div>
-          <h2 className="text-white text-lg font-bold mb-2">즐겨찾기</h2>
-          <p className="text-gray-300 text-sm mb-8 max-w-sm">
+          <h2 className="text-gray-900 text-lg font-bold mb-2">즐겨찾기</h2>
+          <p className="text-gray-600 text-sm mb-8 max-w-sm">
             로그인하면 즐겨찾기를 사용할 수 있어요
           </p>
           <button
             onClick={handleLoginClick}
-            className="px-6 py-3 bg-[#6366f1] hover:bg-[#4338ca] text-white rounded-lg font-medium transition"
+            className="px-6 py-3 bg-gray-900 hover:bg-black text-white rounded-lg font-medium transition"
           >
             로그인하기
           </button>
@@ -332,15 +331,15 @@ export default function FavoritePage() {
   }
 
   return (
-    <div className="h-full bg-[#1a1a2e] flex flex-col">
+    <div className="h-full bg-white flex flex-col">
       {/* 헤더 */}
-      <header className="bg-[#1a1a2e] border-b border-gray-700 px-4 py-6 sticky top-0 z-10">
+      <header className="bg-white border-b border-gray-200 px-4 py-6 sticky top-0 z-10">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-white">즐겨찾기</h1>
+          <h1 className="text-2xl font-bold text-gray-900">즐겨찾기</h1>
           <button
             onClick={handleAddFavorite}
             disabled={adding}
-            className="px-3 py-2 text-sm bg-[#6366f1] hover:bg-[#4338ca] text-white rounded transition disabled:bg-gray-600 disabled:cursor-not-allowed"
+            className="px-3 py-2 text-sm bg-gray-900 hover:bg-black text-white rounded transition disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             {adding ? '추가 중...' : '+ 추가'}
           </button>
@@ -348,25 +347,25 @@ export default function FavoritePage() {
       </header>
 
       {/* 메인 콘텐츠 */}
-      <main className="flex-1 px-4 py-6 overflow-y-auto">
+      <main className="flex-1 px-4 py-6 overflow-y-auto bg-white">
         {/* 로딩 상태 */}
         {loading && (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border border-gray-700 border-t-[#6366f1]"></div>
-            <span className="text-gray-400 ml-3">즐겨찾기를 불러오는 중...</span>
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-gray-900"></div>
+            <span className="text-gray-500 ml-3">불러오는 중...</span>
           </div>
         )}
 
         {/* 목록 조회 에러 메시지 */}
         {error && !loading && (
-          <div className="mb-6 text-sm text-red-200 bg-red-900 bg-opacity-50 px-4 py-3 rounded border border-red-600">
+          <div className="mb-6 text-sm text-red-900 bg-red-50 px-4 py-3 rounded border border-red-200">
             {error}
           </div>
         )}
 
         {/* 조회 에러 메시지 */}
         {queryError && (
-          <div className="mb-6 text-sm text-red-200 bg-red-900 bg-opacity-50 px-4 py-3 rounded border border-red-600">
+          <div className="mb-6 text-sm text-red-900 bg-red-50 px-4 py-3 rounded border border-red-200">
             {queryError}
           </div>
         )}
@@ -377,18 +376,18 @@ export default function FavoritePage() {
             {favorites.map((favorite) => (
               <div
                 key={favorite.id}
-                className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-gray-600 transition"
+                className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-gray-300 transition"
               >
                 {/* 항목: 이모지 + 이름 + 주소 */}
                 <div className="flex items-start gap-3 mb-4">
                   <div className="text-2xl">{favorite.emoji || '📍'}</div>
                   <div className="flex-1">
-                    <div className="text-white font-medium text-sm">{favorite.name}</div>
+                    <div className="text-gray-900 font-medium text-sm">{favorite.name}</div>
                     {favorite.address && (
-                      <div className="text-gray-400 text-xs mt-1">{favorite.address}</div>
+                      <div className="text-gray-600 text-xs mt-1">{favorite.address}</div>
                     )}
                     <div className="text-gray-500 text-xs mt-2">
-                      위치: {favorite.lat?.toFixed(4)}, {favorite.lng?.toFixed(4)}
+                      {favorite.lat?.toFixed(4)}, {favorite.lng?.toFixed(4)}
                     </div>
                   </div>
                 </div>
@@ -398,24 +397,24 @@ export default function FavoritePage() {
                   <button
                     onClick={() => handleViewFavorite(favorite)}
                     disabled={querying}
-                    className="flex-1 py-2 bg-[#6366f1] hover:bg-[#4338ca] text-white text-sm rounded transition font-medium disabled:bg-gray-600 disabled:cursor-not-allowed"
+                    className="flex-1 py-2 bg-gray-900 hover:bg-black text-white text-sm rounded transition font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
-                    {querying ? '조회 중...' : '조회 →'}
+                    {querying ? '조회 중...' : '조회'}
                   </button>
                   <button
                     onClick={() => handleEditFavorite(favorite)}
                     disabled={querying}
-                    className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded transition font-medium disabled:bg-gray-700 disabled:cursor-not-allowed"
+                    className="flex-1 py-2 bg-gray-200 hover:bg-gray-300 text-gray-900 text-sm rounded transition font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
                     편집
                   </button>
                   <button
                     onClick={() => handleQuickDeleteFavorite(favorite)}
                     disabled={querying || deleting}
-                    className="py-2 px-3 bg-red-900 hover:bg-red-800 text-red-200 text-sm rounded transition font-medium disabled:bg-gray-600 disabled:cursor-not-allowed"
+                    className="py-2 px-3 bg-red-500 hover:bg-red-600 text-white text-sm rounded transition font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
                     title="즐겨찾기 삭제"
                   >
-                    🗑️
+                    삭제
                   </button>
                 </div>
               </div>
@@ -426,16 +425,15 @@ export default function FavoritePage() {
         {/* 빈 목록 상태 (AC-001, EC-001) */}
         {!loading && favorites.length === 0 && !error && (
           <div className="text-center py-12">
-            <div className="text-gray-400 mb-6">
-              <div className="text-5xl mb-3">📍</div>
+            <div className="text-gray-500 mb-6">
               <p className="text-sm">아직 즐겨찾기한 목적지가 없어요</p>
             </div>
             <button
               onClick={handleAddFavoriteEmpty}
               disabled={adding}
-              className="px-6 py-3 bg-[#6366f1] hover:bg-[#4338ca] text-white rounded-lg font-medium transition disabled:bg-gray-600 disabled:cursor-not-allowed"
+              className="px-6 py-3 bg-gray-900 hover:bg-black text-white rounded-lg font-medium transition disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {adding ? '추가 중...' : '+ 목적지 추가'}
+              {adding ? '추가 중...' : '목적지 추가'}
             </button>
           </div>
         )}
@@ -444,37 +442,37 @@ export default function FavoritePage() {
       {/* T-004: 편집 모달 */}
       {editingFavorite && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-[430px] bg-[#1a1a2e] rounded-lg p-6 border border-gray-700">
+          <div className="w-full max-w-[430px] bg-white rounded-lg p-6 border border-gray-200">
             {/* 헤더 */}
-            <h2 className="text-white text-lg font-bold mb-6">즐겨찾기 편집</h2>
+            <h2 className="text-gray-900 text-lg font-bold mb-6">위치 편집</h2>
 
             {/* T-007: 에러 배너 */}
             {editError && (
-              <div className="mb-6 text-sm text-red-200 bg-red-900 bg-opacity-50 px-4 py-3 rounded border border-red-600">
+              <div className="mb-6 text-sm text-red-900 bg-red-50 px-4 py-3 rounded border border-red-200">
                 {editError}
               </div>
             )}
 
             {/* 이름 입력 */}
             <div className="mb-6">
-              <label className="block text-white text-sm font-medium mb-2">이름</label>
+              <label className="block text-gray-900 text-sm font-medium mb-2">이름</label>
               <input
                 type="text"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 disabled={saving || deleting}
-                className="w-full px-4 py-3 bg-gray-700 text-white rounded focus:outline-none focus:bg-gray-600 transition disabled:bg-gray-600 disabled:cursor-not-allowed"
+                className="w-full px-4 py-3 bg-gray-50 text-gray-900 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition disabled:bg-gray-200 disabled:cursor-not-allowed"
                 placeholder="이름을 입력하세요"
               />
             </div>
 
             {/* 이모지 선택 */}
             <div className="mb-6">
-              <label className="block text-white text-sm font-medium mb-2">이모지</label>
+              <label className="block text-gray-900 text-sm font-medium mb-2">아이콘</label>
               <button
                 onClick={() => setShowEmojiSelector(true)}
                 disabled={saving || deleting}
-                className="w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded transition disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 text-gray-900 border border-gray-200 rounded transition disabled:bg-gray-200 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <span className="text-2xl">{editEmoji}</span>
                 <span className="text-sm">변경</span>
@@ -486,14 +484,14 @@ export default function FavoritePage() {
               <button
                 onClick={handleCloseEditModal}
                 disabled={saving || deleting}
-                className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded font-medium transition disabled:bg-gray-600 disabled:cursor-not-allowed"
+                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded font-medium transition disabled:bg-gray-200 disabled:cursor-not-allowed"
               >
                 취소
               </button>
               <button
                 onClick={handleSaveFavorite}
                 disabled={saving || deleting}
-                className="flex-1 py-3 bg-[#6366f1] hover:bg-[#4338ca] text-white rounded font-medium transition disabled:bg-gray-600 disabled:cursor-not-allowed"
+                className="flex-1 py-3 bg-gray-900 hover:bg-black text-white rounded font-medium transition disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 {saving ? '저장 중...' : '저장'}
               </button>
@@ -503,7 +501,7 @@ export default function FavoritePage() {
             <button
               onClick={handleDeleteFavorite}
               disabled={saving || deleting}
-              className="w-full mt-4 py-3 bg-red-900 hover:bg-red-800 text-red-200 rounded font-medium transition disabled:bg-gray-600 disabled:cursor-not-allowed disabled:text-gray-400"
+              className="w-full mt-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded font-medium transition disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {deleting ? '삭제 중...' : '삭제'}
             </button>
@@ -514,24 +512,24 @@ export default function FavoritePage() {
       {/* T-007: 삭제 확인 모달 */}
       {confirmDelete && deleteTarget && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-[430px] bg-[#1a1a2e] rounded-lg p-6 border border-gray-700">
-            <h3 className="text-white text-lg font-bold mb-4">
-              "{deleteTarget.name}" 즐겨찾기를 삭제하시겠어요?
+          <div className="w-full max-w-[430px] bg-white rounded-lg p-6 border border-gray-200">
+            <h3 className="text-gray-900 text-lg font-bold mb-4">
+              "{deleteTarget.name}"을 삭제하시겠어요?
             </h3>
-            <p className="text-gray-400 text-sm mb-6">삭제된 즐겨찾기는 복구할 수 없습니다.</p>
+            <p className="text-gray-600 text-sm mb-6">삭제된 항목은 복구할 수 없습니다.</p>
 
             <div className="flex gap-3">
               <button
                 onClick={handleCancelDelete}
                 disabled={deleting}
-                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition disabled:bg-gray-600 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-lg transition disabled:bg-gray-200 disabled:cursor-not-allowed"
               >
                 취소
               </button>
               <button
                 onClick={handleConfirmDelete}
                 disabled={deleting}
-                className="flex-1 px-4 py-3 bg-red-700 hover:bg-red-600 text-white rounded-lg transition disabled:bg-gray-600 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg transition disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 {deleting ? '삭제 중...' : '삭제'}
               </button>
