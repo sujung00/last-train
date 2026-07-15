@@ -96,6 +96,7 @@ jobs:
     outputs:
       image: ${{ steps.image.outputs.image }}
       image-tag: ${{ steps.image.outputs.tag }}
+      image-latest: ${{ steps.image.outputs.image-latest }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
