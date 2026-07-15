@@ -250,7 +250,7 @@ jobs:
           fi >> $GITHUB_OUTPUT
 
       - name: Send Slack notification
-        if: secrets.SLACK_WEBHOOK_URL != ''
+        if: false
         uses: slackapi/slack-github-action@v1.24.0
         with:
           payload: |
