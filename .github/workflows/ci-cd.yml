@@ -129,8 +129,8 @@ jobs:
           GIT_SHA=${{ github.sha }}
           GIT_SHA_SHORT=${GIT_SHA:0:7}
           TAG="${TIMESTAMP}-${GIT_SHA_SHORT}"
-          IMAGE="${{ steps.login-ecr.outputs.registry }}/${IMAGE_NAME}:${TAG}"
-          IMAGE_LATEST="${{ steps.login-ecr.outputs.registry }}/${IMAGE_NAME}:latest"
+          IMAGE="${{ secrets.ECR_REGISTRY }}/${IMAGE_NAME}:${TAG}"
+          IMAGE_LATEST="${{ secrets.ECR_REGISTRY }}/${IMAGE_NAME}:latest"
 
           echo "image=${IMAGE}" >> $GITHUB_OUTPUT
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
