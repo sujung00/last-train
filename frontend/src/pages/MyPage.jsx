@@ -78,17 +78,6 @@ export default function MyPage() {
     setError('')
   }
 
-  if (loading) {
-    return (
-      <div className="h-full bg-[#1a1a2e] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-8 w-8 border border-gray-700 border-t-[#6366f1]"></div>
-          <span className="text-gray-400">로드 중...</span>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="h-full bg-[#1a1a2e] flex flex-col">
       {/* 헤더 */}
