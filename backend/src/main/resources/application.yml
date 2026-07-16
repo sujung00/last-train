@@ -24,6 +24,10 @@ spring:
         format_sql: false
     show-sql: false              # 로컬에서만 true로 오버라이드
 
+  # ── Flyway ──────────────────────────────────────────────────────────────
+  flyway:
+    validate-on-migrate: false
+
   # ── Redis ────────────────────────────────────────────────────────────────
   # REDIS_HOST: 기본값 localhost (비민감, 인프라 설정)
   # REDIS_PORT: 6379는 Redis 기본 포트 (비민감)
@@ -101,7 +105,3 @@ springdoc:
     display-request-duration: true
     enabled: true
   default-consumes-media-type: application/json
-  default-produces-media-type: application/json
-spring:
-  flyway:
-    validate-on-migrate: false
