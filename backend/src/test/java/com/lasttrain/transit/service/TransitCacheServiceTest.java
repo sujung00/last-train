@@ -240,13 +240,9 @@ class TransitCacheServiceTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("getSeoulBusLastTime() - API 실패 → DB Fallback 값 반환")
-    void getSeoulBusLastTime_API_실패_DB_Fallback_반환() {
-        // given: API가 null을 반환합니다.
-        when(seoulBusArrivalClient.getLastBusTime(SEOUL_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY))
-                .thenReturn(null);
-
-        // DB에는 이전 저장값이 있습니다.
+    @DisplayName("getSeoulBusLastTime() - DB 히트 → 바로 반환 (API 호출 없음)")
+    void getSeoulBusLastTime_DB_히트_바로반환() {
+        // given: DB에는 이전 저장값이 있습니다 (배치 데이터).
         LastTransitSchedule fallbackData = LastTransitSchedule.builder()
                 .transitType("BUS_SEOUL")
                 .cacheKey(SEOUL_BUS_CACHE_KEY)
@@ -263,12 +259,12 @@ class TransitCacheServiceTest {
         String result = transitCacheService.getSeoulBusLastTime(
                 SEOUL_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY);
 
-        // then: DB Fallback 값이 반환되고, DB 저장은 호출되지 않아야 합니다.
-        assertThat(result).isEqualTo("23:40");                                         // Fallback 값이 반환되는지
-        verify(seoulBusArrivalClient, times(1))
-                .getLastBusTime(SEOUL_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY);               // API 호출 1회 (시도)
+        // then: DB 값이 바로 반환되고, API 호출은 발생하지 않아야 합니다.
+        assertThat(result).isEqualTo("23:40");                                         // DB 값이 반환되는지
+        verify(seoulBusArrivalClient, never())
+                .getLastBusTime(SEOUL_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY);               // API 호출 안 함 (배치 처리)
         verify(transitCacheWriter, never())
-                .saveOrUpdate(anyString(), anyString(), anyString(), anyString());   // DB 저장은 호출 안 됨
+                .saveOrUpdate(anyString(), anyString(), anyString(), anyString());   // DB 저장은 호출 안 됨 (이미 있음)
         verify(lastTransitScheduleRepository, times(1))
                 .findByTransitTypeAndCacheKeyAndDayType(
                         "BUS_SEOUL", SEOUL_BUS_CACHE_KEY, DAY_TYPE_CONVERTED);       // DB 조회 1회
@@ -310,13 +306,9 @@ class TransitCacheServiceTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("getGyeonggiBusLastTime() - API 실패(null) → DB Fallback 값 반환")
-    void getGyeonggiBusLastTime_API_실패_DB_Fallback_반환() {
-        // given: API가 null을 반환합니다.
-        when(gyeonggiBusRouteClient.getLastBusTime(GYEONGGI_BUS_ROUTE_ID))
-                .thenReturn(null);
-
-        // DB에는 이전 저장값이 있습니다.
+    @DisplayName("getGyeonggiBusLastTime() - DB 히트 → 바로 반환 (API 호출 없음)")
+    void getGyeonggiBusLastTime_DB_히트_바로반환() {
+        // given: DB에는 이전 저장값이 있습니다 (배치 데이터).
         LastTransitSchedule fallbackData = LastTransitSchedule.builder()
                 .transitType("BUS_GYEONGGI")
                 .cacheKey(GYEONGGI_BUS_ROUTE_ID)
@@ -332,12 +324,12 @@ class TransitCacheServiceTest {
         // when: 경기버스 막차 시각을 조회합니다.
         String result = transitCacheService.getGyeonggiBusLastTime(GYEONGGI_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY);
 
-        // then: DB Fallback 값이 반환되고, DB 저장은 호출되지 않아야 합니다.
-        assertThat(result).isEqualTo("23:48");                                         // Fallback 값이 반환되는지
-        verify(gyeonggiBusRouteClient, times(1))
-                .getLastBusTime(GYEONGGI_BUS_ROUTE_ID);                              // API 호출 1회 (시도)
+        // then: DB 값이 바로 반환되고, API 호출은 발생하지 않아야 합니다.
+        assertThat(result).isEqualTo("23:48");                                         // DB 값이 반환되는지
+        verify(gyeonggiBusRouteClient, never())
+                .getLastBusTime(GYEONGGI_BUS_ROUTE_ID);                              // API 호출 안 함 (배치 처리)
         verify(transitCacheWriter, never())
-                .saveOrUpdate(anyString(), anyString(), anyString(), anyString());   // DB 저장은 호출 안 됨
+                .saveOrUpdate(anyString(), anyString(), anyString(), anyString());   // DB 저장은 호출 안 됨 (이미 있음)
         verify(lastTransitScheduleRepository, times(1))
                 .findByTransitTypeAndCacheKeyAndDayType(
                         "BUS_GYEONGGI", GYEONGGI_BUS_ROUTE_ID, DAY_TYPE_CONVERTED);   // DB 조회 1회
@@ -421,38 +413,30 @@ class TransitCacheServiceTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("getSeoulBusLastTime() - 예외 발생(RuntimeException) → DB Fallback 시도")
-    void getSeoulBusLastTime_예외_발생_DB_Fallback() {
-        // given: API가 예외를 던집니다.
-        when(seoulBusArrivalClient.getLastBusTime(SEOUL_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY))
-                .thenThrow(new RuntimeException("API 연결 오류"));
-
-        // DB에는 이전 저장값이 있습니다.
-        LastTransitSchedule fallbackData = LastTransitSchedule.builder()
-                .transitType("BUS_SEOUL")
-                .cacheKey(SEOUL_BUS_CACHE_KEY)
-                .dayType(DAY_TYPE_CONVERTED)
-                .lastTime("23:35")
-                .updatedAt(LocalDateTime.now().minusMinutes(10))
-                .build();
-
+    @DisplayName("getSeoulBusLastTime() - DB 미스 + API 예외 → null 반환 (예외 전파 없음)")
+    void getSeoulBusLastTime_DB_미스_API_예외() {
+        // given: DB에는 데이터가 없습니다 (배치 미실행 또는 새로운 경로).
         when(lastTransitScheduleRepository.findByTransitTypeAndCacheKeyAndDayType(
                 "BUS_SEOUL", SEOUL_BUS_CACHE_KEY, DAY_TYPE_CONVERTED))
-                .thenReturn(Optional.of(fallbackData));
+                .thenReturn(Optional.empty());
+
+        // API가 예외를 던집니다.
+        when(seoulBusArrivalClient.getLastBusTime(SEOUL_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY))
+                .thenThrow(new RuntimeException("API 연결 오류"));
 
         // when: 서울버스 막차 시각을 조회합니다.
         String result = transitCacheService.getSeoulBusLastTime(
                 SEOUL_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY);
 
-        // then: DB Fallback 값이 반환되어야 합니다.
-        assertThat(result).isEqualTo("23:35");                                         // Fallback 값이 반환되는지
+        // then: null이 반환되어야 합니다 (예외 처리됨).
+        assertThat(result).isNull();                                                   // null 반환 (예외 처리)
         verify(seoulBusArrivalClient, times(1))
-                .getLastBusTime(SEOUL_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY);               // API 호출 시도
+                .getLastBusTime(SEOUL_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY);               // API 호출 1회 (DB 미스)
         verify(transitCacheWriter, never())
                 .saveOrUpdate(anyString(), anyString(), anyString(), anyString());   // DB 저장은 호출 안 됨
         verify(lastTransitScheduleRepository, times(1))
                 .findByTransitTypeAndCacheKeyAndDayType(
-                        "BUS_SEOUL", SEOUL_BUS_CACHE_KEY, DAY_TYPE_CONVERTED);       // DB 조회 1회
+                        "BUS_SEOUL", SEOUL_BUS_CACHE_KEY, DAY_TYPE_CONVERTED);       // DB 조회 1회 (초기 미스)
     }
 
 
@@ -463,37 +447,29 @@ class TransitCacheServiceTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("getGyeonggiBusLastTime() - 예외 발생(RuntimeException) → DB Fallback 시도")
-    void getGyeonggiBusLastTime_예외_발생_DB_Fallback() {
-        // given: API가 예외를 던집니다.
-        when(gyeonggiBusRouteClient.getLastBusTime(GYEONGGI_BUS_ROUTE_ID))
-                .thenThrow(new RuntimeException("API 서버 오류"));
-
-        // DB에는 이전 저장값이 있습니다.
-        LastTransitSchedule fallbackData = LastTransitSchedule.builder()
-                .transitType("BUS_GYEONGGI")
-                .cacheKey(GYEONGGI_BUS_ROUTE_ID)
-                .dayType(DAY_TYPE_CONVERTED)
-                .lastTime("23:44")
-                .updatedAt(LocalDateTime.now().minusMinutes(15))
-                .build();
-
+    @DisplayName("getGyeonggiBusLastTime() - DB 미스 + API 예외 → null 반환 (예외 전파 없음)")
+    void getGyeonggiBusLastTime_DB_미스_API_예외() {
+        // given: DB에는 데이터가 없습니다 (배치 미실행 또는 새로운 경로).
         when(lastTransitScheduleRepository.findByTransitTypeAndCacheKeyAndDayType(
                 "BUS_GYEONGGI", GYEONGGI_BUS_ROUTE_ID, DAY_TYPE_CONVERTED))
-                .thenReturn(Optional.of(fallbackData));
+                .thenReturn(Optional.empty());
+
+        // API가 예외를 던집니다.
+        when(gyeonggiBusRouteClient.getLastBusTime(GYEONGGI_BUS_ROUTE_ID))
+                .thenThrow(new RuntimeException("API 서버 오류"));
 
         // when: 경기버스 막차 시각을 조회합니다.
         String result = transitCacheService.getGyeonggiBusLastTime(GYEONGGI_BUS_ROUTE_ID, DAY_TYPE_WEEKDAY);
 
-        // then: DB Fallback 값이 반환되어야 합니다.
-        assertThat(result).isEqualTo("23:44");                                         // Fallback 값이 반환되는지
+        // then: null이 반환되어야 합니다 (예외 처리됨).
+        assertThat(result).isNull();                                                   // null 반환 (예외 처리)
         verify(gyeonggiBusRouteClient, times(1))
-                .getLastBusTime(GYEONGGI_BUS_ROUTE_ID);                              // API 호출 시도
+                .getLastBusTime(GYEONGGI_BUS_ROUTE_ID);                              // API 호출 1회 (DB 미스)
         verify(transitCacheWriter, never())
                 .saveOrUpdate(anyString(), anyString(), anyString(), anyString());   // DB 저장은 호출 안 됨
         verify(lastTransitScheduleRepository, times(1))
                 .findByTransitTypeAndCacheKeyAndDayType(
-                        "BUS_GYEONGGI", GYEONGGI_BUS_ROUTE_ID, DAY_TYPE_CONVERTED);   // DB 조회 1회
+                        "BUS_GYEONGGI", GYEONGGI_BUS_ROUTE_ID, DAY_TYPE_CONVERTED);   // DB 조회 1회 (초기 미스)
     }
 
 
