@@ -102,3 +102,6 @@ springdoc:
     enabled: true
   default-consumes-media-type: application/json
   default-produces-media-type: application/json
+spring:
+  flyway:
+    repair-on-migrate: true
