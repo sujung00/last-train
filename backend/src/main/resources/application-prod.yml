@@ -5,6 +5,8 @@ spring:
     show-sql: false
   data:
     redis: {}
+  flyway:
+    repair-on-migrate: true
 springdoc:
   api-docs:
     enabled: false
