@@ -1,6 +1,7 @@
 package com.lasttrain.transit.controller;
 
 import com.lasttrain.global.response.ApiResponse;
+import com.lasttrain.transit.service.BatchMetrics;
 import com.lasttrain.transit.service.TransitCacheService;
 import com.lasttrain.transit.service.TransitRefreshScheduler;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class TransitAdminController {
 
     private final TransitRefreshScheduler transitRefreshScheduler;
+    private final BatchMetrics batchMetrics;
 
     /**
      * 지하철 막차 시각 캐시를 갱신합니다.
@@ -162,6 +164,85 @@ public class TransitAdminController {
         } catch (Exception e) {
             log.error("[TransitAdminController] 메트릭 리셋 중 오류 발생", e);
             return ApiResponse.ok("메트릭 리셋 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 배치 처리 성능 메트릭을 조회합니다.
+     *
+     * 요청:
+     *   GET /admin/transit/metrics/batch
+     *
+     * 응답:
+     *   {
+     *     "success": true,
+     *     "data": "========== 배치 처리 성능 메트릭 ==========\n
+     *              [DB 조회 통계]\n
+     *              총 조회: 1234회\n
+     *              히트: 1220회 ✅\n
+     *              미스: 14회 ⚠️\n
+     *              히트율: 98.87%\n
+     *              평균 쿼리 시간: 4.56ms\n
+     *              ...",
+     *     "error": null,
+     *     "timestamp": "2026-07-01T10:30:00"
+     *   }
+     *
+     * 메트릭 설명:
+     *   - DB 히트: 배치 데이터에서 조회 성공 (목표: >99%)
+     *   - DB 미스: 배치 데이터 없어서 API Fallback (목표: <1%)
+     *   - 평균 DB 쿼리 시간: 매우 빠름 (목표: <10ms)
+     *   - API Fallback: 매우 적어야 함 (새로운 노선만 발생)
+     *
+     * @return 배치 성능 메트릭
+     */
+    @GetMapping("/metrics/batch")
+    public ApiResponse<String> getBatchMetrics() {
+        log.info("[TransitAdminController] 배치 메트릭 조회 요청");
+
+        try {
+            String metrics = batchMetrics.getMetricsReport();
+            log.debug("[TransitAdminController] 배치 메트릭:\n{}", metrics);
+            return ApiResponse.ok(metrics);
+
+        } catch (Exception e) {
+            log.error("[TransitAdminController] 배치 메트릭 조회 중 오류 발생", e);
+            return ApiResponse.ok("배치 메트릭 조회 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 배치 처리 메트릭을 초기화합니다.
+     *
+     * 요청:
+     *   POST /admin/transit/metrics/batch/reset
+     *
+     * 응답:
+     *   {
+     *     "success": true,
+     *     "data": "배치 메트릭이 초기화되었습니다.",
+     *     "error": null,
+     *     "timestamp": "2026-07-01T10:30:00"
+     *   }
+     *
+     * 용도:
+     *   - 일일 모니터링 시작 시 초기화
+     *   - 새로운 배치 개선 측정 시작
+     *
+     * @return 초기화 완료 메시지
+     */
+    @PostMapping("/metrics/batch/reset")
+    public ApiResponse<String> resetBatchMetrics() {
+        log.info("[TransitAdminController] 배치 메트릭 초기화 요청");
+
+        try {
+            batchMetrics.reset();
+            log.info("[TransitAdminController] 배치 메트릭 초기화 완료");
+            return ApiResponse.ok("배치 메트릭이 초기화되었습니다.");
+
+        } catch (Exception e) {
+            log.error("[TransitAdminController] 배치 메트릭 초기화 중 오류 발생", e);
+            return ApiResponse.ok("배치 메트릭 초기화 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
 }
