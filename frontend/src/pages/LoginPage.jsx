@@ -2,6 +2,10 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import api from '../api/axios'
 
+/**
+ * 6b 리디자인: 입력창을 밑줄형으로, 위계 단순화
+ * 로직은 기존 LoginPage.jsx와 동일. 마크업만 교체.
+ */
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -13,26 +17,18 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setLoading(true)
-
     try {
       const response = await api.post('/api/v1/auth/login', { email, password })
       const { accessToken, refreshToken } = response.data.data
-
       localStorage.setItem('accessToken', accessToken)
       localStorage.setItem('refreshToken', refreshToken)
       localStorage.setItem('userEmail', email)
       localStorage.setItem('userProvider', 'EMAIL')
-
       window.dispatchEvent(new Event('authChange'))
       navigate('/')
     } catch (err) {
-      // 401: 이메일/비밀번호 불일치
-      if (err.response?.status === 401) {
-        setError('이메일 또는 비밀번호가 올바르지 않아요')
-      } else {
-        // 그 외 에러
-        setError('로그인에 실패했어요. 잠시 후 다시 시도해주세요')
-      }
+      if (err.response?.status === 401) setError('이메일 또는 비밀번호가 올바르지 않아요')
+      else setError('로그인에 실패했어요. 잠시 후 다시 시도해주세요')
     } finally {
       setLoading(false)
     }
@@ -41,96 +37,57 @@ export default function LoginPage() {
   const handleKakaoLogin = () => {
     const clientId = import.meta.env.VITE_KAKAO_CLIENT_ID
     const redirectUri = import.meta.env.VITE_KAKAO_REDIRECT_URI
-    const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code`
-    window.location.href = kakaoAuthUrl
+    window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code`
   }
 
   return (
-    <div className="h-full bg-white flex items-center justify-center px-4 relative">
-      {/* 뒤로가기 버튼 */}
-      <button
-        onClick={() => navigate(-1)}
-        className="absolute top-4 left-4 text-gray-600 hover:text-gray-900 transition text-sm"
-      >
-        ← 뒤로
-      </button>
+    <div className="h-full bg-white flex items-start justify-center px-4 relative">
+      <button onClick={() => navigate('/')} className="absolute top-5 left-4 text-gray-500 hover:text-gray-900 transition text-sm">← 홈으로</button>
 
-      <div className="w-full max-w-md">
-        {/* 타이틀 */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">막차알리미</h1>
-          <p className="text-gray-600">마지막 한 대를 놓치지 마세요</p>
+      <div className="w-full max-w-md pt-[92px]">
+        <div className="mb-7">
+          <h1 className="text-2xl font-bold text-gray-900 mb-1.5">막차알리미</h1>
+          <p className="text-gray-500 text-[13px]">마지막 한 대를 놓치지 마세요</p>
         </div>
 
-        {/* 로그인 폼 */}
-        <form onSubmit={handleLogin} className="space-y-4">
-          {/* 에러 메시지 */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-900 px-4 py-3 rounded">
-              {error}
-            </div>
-          )}
+        <form onSubmit={handleLogin} className="flex flex-col gap-5 mb-5">
+          {error && <div className="bg-red-50 border border-red-200 text-red-900 px-4 py-3 rounded text-sm">{error}</div>}
 
-          {/* 이메일 입력 */}
           <div>
-            <label className="block text-gray-900 text-sm font-medium mb-2">이메일</label>
+            <label className="block text-gray-500 text-xs mb-2">이메일</label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="example@email.com"
-              className="w-full px-4 py-3 bg-gray-50 text-gray-900 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-              required
-              disabled={loading}
+              type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="example@email.com"
+              className="w-full pb-2.5 border-0 border-b border-gray-300 focus:outline-none focus:border-blue-500 transition text-sm bg-transparent"
+              required disabled={loading}
+            />
+          </div>
+          <div>
+            <label className="block text-gray-500 text-xs mb-2">비밀번호</label>
+            <input
+              type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="비밀번호를 입력하세요"
+              className="w-full pb-2.5 border-0 border-b border-gray-300 focus:outline-none focus:border-blue-500 transition text-sm bg-transparent"
+              required disabled={loading}
             />
           </div>
 
-          {/* 비밀번호 입력 */}
-          <div>
-            <label className="block text-gray-900 text-sm font-medium mb-2">비밀번호</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="비밀번호를 입력하세요"
-              className="w-full px-4 py-3 bg-gray-50 text-gray-900 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-              required
-              disabled={loading}
-            />
-          </div>
-
-          {/* 로그인 버튼 */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gray-900 hover:bg-black text-white font-bold py-3 rounded transition disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
+          <button type="submit" disabled={loading} className="w-full bg-gray-900 hover:bg-black text-white font-semibold py-3.5 rounded-lg transition disabled:bg-gray-400 text-[15px]">
             {loading ? '로그인 중...' : '로그인'}
           </button>
         </form>
 
-        {/* 구분선 */}
-        <div className="flex items-center my-6">
-          <div className="flex-grow border-t border-gray-300"></div>
-          <span className="px-3 text-gray-500 text-sm">또는</span>
-          <div className="flex-grow border-t border-gray-300"></div>
+        <div className="flex items-center gap-2.5 mb-5">
+          <div className="flex-1 border-t border-gray-100"></div>
+          <span className="text-gray-400 text-xs">또는</span>
+          <div className="flex-1 border-t border-gray-100"></div>
         </div>
 
-        {/* 카카오로 로그인 버튼 */}
-        <button
-          onClick={handleKakaoLogin}
-          disabled={loading}
-          className="w-full bg-[#FEE500] hover:bg-yellow-300 text-black font-bold py-3 rounded transition disabled:bg-gray-400 disabled:cursor-not-allowed"
-        >
+        <button onClick={handleKakaoLogin} disabled={loading} className="w-full bg-[#FEE500] hover:bg-yellow-300 text-black font-semibold py-3.5 rounded-lg transition disabled:bg-gray-400 text-[15px] mb-5">
           카카오로 로그인
         </button>
 
-        {/* 회원가입 링크 */}
-        <div className="text-center mt-6">
-          <span className="text-gray-600">계정이 없으신가요? </span>
-          <Link to="/signup" className="text-gray-900 hover:text-black font-medium transition">
-            회원가입
-          </Link>
+        <div className="text-center text-[13px]">
+          <span className="text-gray-500">계정이 없으신가요? </span>
+          <Link to="/signup" className="text-blue-600 font-semibold hover:text-blue-700 transition">회원가입</Link>
         </div>
       </div>
     </div>

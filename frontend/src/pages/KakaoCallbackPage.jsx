@@ -35,7 +35,12 @@ export default function KakaoCallbackPage() {
         window.dispatchEvent(new Event('authChange'))
         navigate('/')
       } catch (error) {
-        console.error('카카오 로그인 콜백 처리 실패:', error)
+        console.error('카카오 로그인 콜백 처리 실패:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          message: error.message,
+        })
         navigate('/login')
       }
     }
