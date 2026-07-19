@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/axios'
 import PlaceSearchModal from '../components/PlaceSearchModal'
+import MapView from '../components/MapView'
 
 /**
  * 1c 리디자인: 지도 우선 레이아웃 + 하단 바텀시트
@@ -186,12 +187,15 @@ export default function MainPage() {
 
   return (
     <div className="h-full bg-[#eef1f4] flex flex-col relative overflow-hidden">
-      {/* 지도 영역 — 실제 지도 SDK(카카오맵 등) 연동 지점. 아래 마커는 예시용 */}
-      <div className="relative flex-shrink-0 h-[300px]" style={{ backgroundImage: 'repeating-linear-gradient(135deg,#e9edf1 0 12px,#dfe4e9 12px 24px)' }}>
-        <div className="absolute top-4 left-4 bg-white/90 px-3.5 py-2 rounded-full font-bold text-[15px] text-gray-900 shadow">막차알리미</div>
-        {origin && <div className="absolute w-4 h-4 rounded-full bg-blue-600 border-2 border-white shadow" style={{ left: '80px', top: '190px' }} />}
-        {destination && <div className="absolute w-4 h-4 rounded-full bg-gray-900 border-2 border-white shadow" style={{ right: '70px', top: '90px' }} />}
-        <div className="absolute left-4 bottom-4 bg-white/80 px-2 py-1 rounded text-[11px] font-mono text-gray-600">지도 영역 · 실제 지도 API 연동</div>
+      {/* 지도 영역 — Phase 1 + 2: 기본 지도 + 현재 위치 + 출발지·도착지 마커 */}
+      <div className="relative flex-shrink-0 h-[300px]">
+        <MapView
+          gpsLocation={gpsLocation}
+          gpsError={gpsError}
+          origin={origin}
+          destination={destination}
+        />
+        <div className="absolute top-4 left-4 bg-white/90 px-3.5 py-2 rounded-full font-bold text-[15px] text-gray-900 shadow z-10 pointer-events-none">막차알리미</div>
       </div>
 
       <div className="flex-1 bg-white rounded-t-[20px] -mt-5 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] flex flex-col overflow-hidden">
@@ -206,7 +210,7 @@ export default function MainPage() {
             <>
               <div className="bg-gray-50 border border-gray-200 rounded-lg overflow-hidden mb-3">
                 <button onClick={handleChangeOrigin} className="w-full flex items-center gap-2.5 px-3.5 py-3 text-left">
-                  <span className="w-2 h-2 rounded-full bg-blue-600 flex-shrink-0" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
                   <span className="flex-1 min-w-0">
                     <span className="block text-[10px] font-medium text-gray-400 uppercase tracking-wide">출발지</span>
                     <span className="block font-semibold text-sm text-gray-900 mt-0.5 truncate">
