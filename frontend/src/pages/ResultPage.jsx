@@ -10,14 +10,44 @@ import EmojiSelectorModal from '../components/EmojiSelectorModal'
 function buildTimeline(transfers) {
   const stops = []
   transfers.forEach((t, i) => {
-    stops.push({ name: t.boardAt, sub: `${t.line} 승차`, open: false })
+    stops.push({ name: stationLabel(t.boardAt, t.line), sub: `${t.line} 승차`, open: false })
     stops.push({
-      name: t.alightAt,
+      name: stationLabel(t.alightAt, t.line),
       sub: i === transfers.length - 1 ? '하차' : `환승${t.lastBoardTime ? ' · 막차 탑승 ' + t.lastBoardTime : ''}`,
       open: i !== transfers.length - 1,
     })
   })
   return stops
+}
+
+const LINE_COLORS = {
+  '1호선': '#0052a4', '2호선': '#00a84d', '3호선': '#ef7c1c', '4호선': '#00a5de',
+  '5호선': '#996cac', '6호선': '#cd7c2f', '7호선': '#747f00', '8호선': '#e6186c',
+  '9호선': '#8b5cf6', '수인분당선': '#f5a200', '경의중앙선': '#77c4a3', '신분당선': '#d4003b',
+}
+function isSubwayLine(line) { return /호선/.test(line || '') }
+function lineNumber(line) { const m = (line || '').match(/\d+/); return m ? m[0] : (line || '').replace('호선', '') }
+function lineColor(line) { return LINE_COLORS[`${lineNumber(line)}호선`] || '#6b7280' }
+function lineShort(line) { return lineNumber(line) }
+function stationLabel(name, line) {
+  if (!name) return name
+  return isSubwayLine(line) && !name.endsWith('역') ? `${name}역` : name
+}
+
+function TransitBadge({ line }) {
+  if (isSubwayLine(line)) {
+    return (
+      <span className="w-[18px] h-[18px] rounded-full text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0" style={{ background: lineColor(line) }}>
+        {lineShort(line)}
+      </span>
+    )
+  }
+  return (
+    <span className="h-[18px] px-1.5 rounded-[5px] bg-gray-700 text-white text-[10px] font-bold flex items-center gap-1 flex-shrink-0">
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM18 11H6V6h12v5z" /></svg>
+        {lineShort(line)}
+      </span>
+  )
 }
 
 export default function ResultPage() {
@@ -34,6 +64,7 @@ export default function ResultPage() {
   const [showMinutesSelector, setShowMinutesSelector] = useState(false)
   const [isSubscribingNotification, setIsSubscribingNotification] = useState(false)
   const [isLoggedIn] = useState(() => !!localStorage.getItem('accessToken'))
+  const [expandedRouteIndex, setExpandedRouteIndex] = useState(null)
 
   const coordinateMissing = !destObject || !(typeof destObject.lat === 'number' && typeof destObject.lng === 'number')
 
@@ -221,19 +252,55 @@ export default function ResultPage() {
               <div className="flex flex-col">
                 {limitedRoutes.slice(1).map((route, i) => {
                   const idx = i + 1
+                  const isOpen = expandedRouteIndex === idx
+                  const altTimeline = buildTimeline(route.transfers || [])
                   return (
-                    <div key={idx} className="flex items-center justify-between py-2.5 border-b border-gray-100">
-                      <div>
-                        <div className="text-[13px] font-medium text-gray-900">선택지 {idx} · 출발 마감 {route.departureDeadline}</div>
-                        <div className={`text-xs mt-0.5 ${route.currentStatus.canCatch ? 'text-green-600' : 'text-red-600'}`}>{route.currentStatus.canCatch ? '탑승 가능' : '탑승 불가'}</div>
-                      </div>
-                      <button
-                        onClick={() => handleNotificationClick(idx)}
-                        disabled={subscribedRoutes.has(idx)}
-                        className="text-xs text-blue-600 font-semibold whitespace-nowrap px-3 py-1.5 border border-blue-200 rounded-full disabled:opacity-50"
-                      >
-                        {subscribedRoutes.has(idx) ? '✓ 설정됨' : '알림받기'}
+                    <div key={idx} className="border-b border-gray-100 py-2.5">
+                      <button onClick={() => setExpandedRouteIndex(isOpen ? null : idx)} className="w-full flex items-center justify-between gap-3 text-left">
+                        <div className="min-w-0">
+                          <div className="text-[13px] font-medium text-gray-900">선택지 {idx} · 출발 마감 {route.departureDeadline}</div>
+                          {route.transfers?.length > 0 && (
+                            <div className="flex items-center gap-1.5 mt-1.5">
+                              {route.transfers.map((t, i) => (
+                                <span key={i} className="flex items-center gap-1.5">
+                                  {i > 0 && <span className="text-gray-300 text-[11px]">›</span>}
+                                  <TransitBadge line={t.line} />
+                                </span>
+                              ))}
+                              <span className="text-gray-400 text-[11px] ml-1">{route.transfers.length > 1 ? `환승 ${route.transfers.length - 1}회` : '직행'}</span>
+                            </div>
+                          )}
+                          <div className={`text-xs mt-1 ${route.currentStatus.canCatch ? 'text-green-600' : 'text-red-600'}`}>{route.currentStatus.canCatch ? '탑승 가능' : '탑승 불가'}</div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span
+                            onClick={(e) => { e.stopPropagation(); handleNotificationClick(idx) }}
+                            className="text-xs text-blue-600 font-semibold whitespace-nowrap px-3 py-1.5 border border-blue-200 rounded-full"
+                          >
+                            {subscribedRoutes.has(idx) ? '✓ 설정됨' : '알림받기'}
+                          </span>
+                          <span className="text-gray-900 text-[11px]">{isOpen ? '⌃' : '⌄'}</span>
+                        </div>
                       </button>
+                      {isOpen && altTimeline.length > 0 && (
+                        <div className="mt-3.5 pl-0.5">
+                          <div className="text-gray-400 text-[10px] font-medium mb-2.5 uppercase tracking-wide">경로</div>
+                          <div className="flex flex-col">
+                            {altTimeline.map((stop, i) => (
+                              <div key={i} className="flex gap-2.5">
+                                <div className="flex flex-col items-center w-2">
+                                  <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-[3px] ${stop.open ? 'bg-white border-[1.5px] border-gray-900' : 'bg-gray-900'}`} />
+                                  {i < altTimeline.length - 1 && <div className="w-px flex-1 bg-gray-300 my-1" />}
+                                </div>
+                                <div className={i < altTimeline.length - 1 ? 'pb-3.5' : ''}>
+                                  <div className="text-[13px] font-semibold text-gray-900">{stop.name}</div>
+                                  <div className="text-xs text-gray-500 mt-0.5">{stop.sub}</div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
